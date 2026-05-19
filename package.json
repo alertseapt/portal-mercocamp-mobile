@@ -1,6 +1,6 @@
 {
   "name": "portalmercocamp-mobile",
-  "version": "1.16.6",
+  "version": "1.16.7",
   "description": "Portal Mercocamp - App mobile (Android/iOS via Capacitor)",
   "type": "module",
   "scripts": {
@@ -34,6 +34,7 @@
   "author": "Mercocamp Team",
   "license": "MIT",
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.1.2",
     "@vue/eslint-config-prettier": "^9.0.0",
     "eslint": "^8.57.1",
