@@ -1,0 +1,1094 @@
+<template>
+  <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+    <div class="modal-content documents-modal">
+      <div class="modal-header">
+        <h3>
+          <i class="fas fa-file-alt"></i>
+          Documentos do Pedido
+        </h3>
+        <button @click="closeModal" class="btn-close">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div v-if="loading" class="loading-state">
+          <div class="loader-spinner"></div>
+          <p>Carregando documentos...</p>
+        </div>
+
+        <div v-else-if="error" class="error-state">
+          <i class="fas fa-exclamation-triangle"></i>
+          <p>{{ error }}</p>
+        </div>
+
+        <div v-else-if="documents.length === 0" class="empty-state">
+          <i class="fas fa-folder-open"></i>
+          <h4>Nenhum documento encontrado</h4>
+          <p>Este pedido não possui documentos anexados</p>
+        </div>
+
+        <div v-else class="documents-list">
+          <div
+            v-for="(doc, index) in documents"
+            :key="index"
+            class="document-item"
+          >
+            <div class="document-icon">
+              <i :class="getDocumentIcon(doc.type)"></i>
+            </div>
+            <div class="document-info">
+              <h4 class="document-name">{{ doc.name }}</h4>
+              <p class="document-description">{{ doc.description }}</p>
+              <span class="document-size" v-if="doc.size">{{ formatFileSize(doc.size) }}</span>
+            </div>
+            <div class="document-actions">
+              <button
+                @click="openDocument(doc)"
+                class="btn-view"
+                title="Visualizar documento"
+              >
+                <i class="fas fa-eye"></i>
+                Visualizar
+              </button>
+              <button
+                v-if="doc.canDownload"
+                @click="downloadDocument(doc)"
+                class="btn-download"
+                title="Baixar documento"
+              >
+                <i class="fas fa-download"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button @click="closeModal" class="btn-secondary">
+          <i class="fas fa-times"></i>
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import axios from 'axios'
+import { BASE_URL } from '../config/api'
+
+export default {
+  name: 'DocumentsModal',
+  props: {
+    showModal: {
+      type: Boolean,
+      required: true
+    },
+    orderId: {
+      type: [Number, String],
+      default: null
+    }
+  },
+  data() {
+    return {
+      loading: false,
+      error: null,
+      documents: [],
+      orderData: null
+    }
+  },
+  watch: {
+    showModal(newVal) {
+      if (newVal && this.orderId) {
+        this.loadDocuments()
+      }
+    },
+    orderId(newVal) {
+      if (newVal && this.showModal) {
+        this.loadDocuments()
+      }
+    }
+  },
+  methods: {
+    closeModal() {
+      this.$emit('close')
+    },
+
+    async loadDocuments() {
+      if (!this.orderId) {
+        this.error = 'ID do pedido não fornecido'
+        return
+      }
+
+      this.loading = true
+      this.error = null
+      this.documents = []
+
+      try {
+        const token = localStorage.getItem('token')
+        const response = await axios.get(`${BASE_URL}/expeditions/${this.orderId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        if (response.data.success) {
+          this.orderData = response.data.pedido
+          this.processDocuments()
+        } else {
+          this.error = 'Erro ao carregar dados do pedido'
+        }
+      } catch (error) {
+        console.error('Erro ao carregar documentos:', error)
+        this.error = error.response?.data?.error || 'Erro ao carregar documentos'
+      } finally {
+        this.loading = false
+      }
+    },
+
+    processDocuments() {
+      const docs = []
+
+      console.log('🔍 [DOCS] Processando documentos do pedido:', this.orderData)
+      console.log('🔍 [DOCS] orderData.documentos:', this.orderData.documentos)
+      console.log('🔍 [DOCS] orderData.docs:', this.orderData.docs)
+      console.log('🔍 [DOCS] orderData.etiqueta:', this.orderData.etiqueta)
+
+      // 1. Etiqueta do cliente (campo ETQCLIZPLBASE64)
+      if (this.orderData.etiqueta && this.orderData.etiqueta.base64) {
+        docs.push({
+          name: 'Etiqueta do Cliente',
+          description: 'Etiqueta personalizada anexada ao pedido',
+          type: 'file',
+          data: this.orderData.etiqueta.base64,
+          size: parseInt(this.orderData.etiqueta.fileSize) || this.orderData.etiqueta.base64.length,
+          canDownload: true,
+          mimeType: 'application/octet-stream' // Tipo genérico, pode ser ZPL, PDF, TXT, etc.
+        })
+        console.log('✅ [DOCS] Etiqueta do cliente adicionada')
+      }
+
+      // 3. Documentos adicionais (campo documentos)
+      if (this.orderData.documentos && Array.isArray(this.orderData.documentos)) {
+        console.log(`🔍 [DOCS] Processando ${this.orderData.documentos.length} documento(s) adicional(is)`)
+        this.orderData.documentos.forEach((doc, index) => {
+          console.log(`📄 [DOCS] Documento ${index + 1}:`, doc)
+          console.log(`📄 [DOCS] Campos disponíveis:`, Object.keys(doc))
+
+          // Buscar dados em vários campos possíveis
+          const docData = doc.data || doc.base64 || doc.content || doc.file || doc.arquivo || null
+
+          console.log(`📄 [DOCS] Dados encontrados:`, {
+            hasData: !!doc.data,
+            hasBase64: !!doc.base64,
+            hasContent: !!doc.content,
+            hasFile: !!doc.file,
+            hasArquivo: !!doc.arquivo,
+            selectedField: docData ? 'encontrado' : 'nenhum',
+            dataLength: docData ? docData.length : 0
+          })
+
+          if (!docData) {
+            console.warn(`⚠️ [DOCS] Documento ${index + 1} sem dados! Pulando...`)
+            return // Pular este documento
+          }
+
+          docs.push({
+            name: doc.name || doc.nome || `Documento ${index + 1}`,
+            description: doc.description || doc.descricao || 'Documento anexado',
+            type: doc.type || doc.tipo || 'file',
+            data: docData,
+            size: doc.size || doc.tamanho || (docData ? docData.length : 0),
+            canDownload: true,
+            mimeType: doc.mimeType || doc.mime_type || doc.mimetype || this.getMimeTypeFromName(doc.name || doc.nome)
+          })
+        })
+        console.log(`✅ [DOCS] ${docs.length - (this.orderData.etiqueta?.base64 ? 1 : 0)} documento(s) adicional(is) adicionado(s)`)
+      } else {
+        console.log('⚠️ [DOCS] Nenhum documento adicional encontrado ou documentos não é um array')
+      }
+
+      this.documents = docs
+
+      console.log('📄 [DOCS] Total de documentos processados:', docs.length)
+      console.log('📄 [DOCS] Lista final de documentos:', docs.map(d => ({ name: d.name, type: d.type, hasData: !!d.data })))
+    },
+
+    getDocumentIcon(type) {
+      const icons = {
+        xml: 'fas fa-file-code',
+        pdf: 'fas fa-file-pdf',
+        image: 'fas fa-file-image',
+        zip: 'fas fa-file-archive',
+        txt: 'fas fa-file-alt',
+        file: 'fas fa-file'
+      }
+      return icons[type] || 'fas fa-file'
+    },
+
+    getMimeTypeFromName(name) {
+      if (!name) return 'application/octet-stream'
+
+      const ext = name.split('.').pop().toLowerCase()
+      const mimeTypes = {
+        pdf: 'application/pdf',
+        xml: 'application/xml',
+        txt: 'text/plain',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        zip: 'application/zip',
+        zpl: 'text/plain'
+      }
+      return mimeTypes[ext] || 'application/octet-stream'
+    },
+
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 Bytes'
+      const k = 1024
+      const sizes = ['Bytes', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+    },
+
+    async openDocument(doc) {
+      try {
+        // Abrir documento diretamente
+        await this.openBase64Document(doc)
+      } catch (error) {
+        console.error('Erro ao abrir documento:', error)
+        alert('Erro ao abrir documento. Por favor, tente baixar o arquivo.')
+      }
+    },
+
+    cleanBase64(base64String) {
+      // Gerar DANFE PDF real usando biblioteca node-sped-pdf
+      try {
+        console.log('📄 Gerando DANFE PDF...')
+
+        // A biblioteca espera o XML como string (não base64)
+        const xmlString = doc.data
+
+        // Gerar DANFE PDF usando a biblioteca
+        const pdfBuffer = await DANFe({
+          xml: xmlString,
+          // Opcional: adicionar logo da empresa
+          // logo: "data:image/png;base64,..."
+        })
+
+        console.log('✅ DANFE PDF gerado com sucesso')
+
+        // Criar blob do PDF
+        const blob = new Blob([pdfBuffer], { type: 'application/pdf' })
+        const url = URL.createObjectURL(blob)
+
+        // Abrir PDF em nova janela
+        const newWindow = window.open(url, '_blank')
+
+        if (!newWindow) {
+          throw new Error('Popup bloqueado. Por favor, permita popups para este site.')
+        }
+
+        // Liberar URL após um tempo
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+        }, 60000) // 1 minuto
+
+      } catch (error) {
+        console.error('❌ Erro ao gerar DANFE PDF:', error)
+
+        // Fallback: tentar método antigo HTML
+        console.warn('⚠️ Tentando método alternativo (HTML)...')
+        await this.openXMLAsPDF(doc)
+      }
+    },
+
+    async openXMLAsPDF(doc) {
+      // Método fallback: Converter XML para visualização HTML
+      // Usado apenas se a biblioteca DANFE falhar
+
+      try {
+        // Parsear XML
+        const parser = new DOMParser()
+        const xmlDoc = parser.parseFromString(doc.data, 'text/xml')
+
+        // Extrair informações principais da NFe
+        const nfe = this.extractNFeData(xmlDoc)
+
+        // Criar HTML formatado
+        const html = this.generateNFeHTML(nfe)
+
+        // Abrir em nova janela
+        const newWindow = window.open('', '_blank')
+        newWindow.document.write(html)
+        newWindow.document.close()
+
+        // Adicionar botão de imprimir
+        setTimeout(() => {
+          newWindow.focus()
+        }, 100)
+      } catch (error) {
+        console.error('Erro ao converter XML para HTML:', error)
+        // Último fallback: abrir XML bruto
+        this.openBase64Document(doc)
+      }
+    },
+
+    extractNFeData(xmlDoc) {
+      // Extrair dados principais da NFe do XML
+      const getNS = (tagName) => {
+        const elements = xmlDoc.getElementsByTagName(tagName)
+        return elements.length > 0 ? elements[0].textContent : 'N/A'
+      }
+
+      return {
+        numero: getNS('nNF'),
+        serie: getNS('serie'),
+        dataEmissao: getNS('dhEmi'),
+        chave: getNS('chNFe'),
+        emitente: {
+          nome: getNS('xNome'),
+          cnpj: getNS('CNPJ'),
+          endereco: getNS('xLgr'),
+          numero: getNS('nro'),
+          bairro: getNS('xBairro'),
+          municipio: getNS('xMun'),
+          uf: getNS('UF'),
+          cep: getNS('CEP')
+        },
+        destinatario: {
+          nome: xmlDoc.querySelector('dest xNome')?.textContent || 'N/A',
+          cnpj: xmlDoc.querySelector('dest CNPJ')?.textContent || 'N/A',
+          endereco: xmlDoc.querySelector('dest xLgr')?.textContent || 'N/A',
+          numero: xmlDoc.querySelector('dest nro')?.textContent || 'N/A',
+          bairro: xmlDoc.querySelector('dest xBairro')?.textContent || 'N/A',
+          municipio: xmlDoc.querySelector('dest xMun')?.textContent || 'N/A',
+          uf: xmlDoc.querySelector('dest UF')?.textContent || 'N/A',
+          cep: xmlDoc.querySelector('dest CEP')?.textContent || 'N/A'
+        },
+        valores: {
+          produtos: getNS('vProd'),
+          desconto: getNS('vDesc'),
+          frete: getNS('vFrete'),
+          total: getNS('vNF')
+        }
+      }
+    },
+
+    generateNFeHTML(nfe) {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>NFe ${nfe.numero} - Série ${nfe.serie}</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .container {
+              max-width: 800px;
+              margin: 0 auto;
+              background: white;
+              padding: 30px;
+              border-radius: 8px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .header {
+              text-align: center;
+              border-bottom: 3px solid #2563eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #1e40af;
+              font-size: 24px;
+              margin-bottom: 10px;
+            }
+            .header .subtitle {
+              color: #64748b;
+              font-size: 14px;
+            }
+            .info-section {
+              margin-bottom: 25px;
+            }
+            .info-section h2 {
+              color: #334155;
+              font-size: 18px;
+              margin-bottom: 15px;
+              padding-bottom: 8px;
+              border-bottom: 2px solid #e2e8f0;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+            }
+            .info-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .info-label {
+              font-size: 12px;
+              color: #64748b;
+              font-weight: 600;
+              margin-bottom: 5px;
+              text-transform: uppercase;
+            }
+            .info-value {
+              font-size: 14px;
+              color: #334155;
+              word-break: break-all;
+            }
+            .chave-nfe {
+              background: #f1f5f9;
+              padding: 15px;
+              border-radius: 6px;
+              margin-top: 30px;
+              text-align: center;
+            }
+            .chave-nfe .label {
+              font-size: 12px;
+              color: #64748b;
+              margin-bottom: 8px;
+            }
+            .chave-nfe .value {
+              font-family: 'Courier New', monospace;
+              font-size: 11px;
+              color: #1e40af;
+              word-break: break-all;
+              font-weight: bold;
+            }
+            .actions {
+              margin-top: 30px;
+              text-align: center;
+              padding-top: 20px;
+              border-top: 2px solid #e2e8f0;
+            }
+            .btn-print {
+              background: #2563eb;
+              color: white;
+              border: none;
+              padding: 12px 30px;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.2s;
+            }
+            .btn-print:hover {
+              background: #1d4ed8;
+            }
+            @media print {
+              body {
+                background: white;
+                padding: 0;
+              }
+              .container {
+                box-shadow: none;
+                padding: 0;
+              }
+              .actions {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>NOTA FISCAL ELETRÔNICA</h1>
+              <p class="subtitle">NFe nº ${nfe.numero} - Série ${nfe.serie}</p>
+              <p class="subtitle">Data de Emissão: ${this.formatDateTime(nfe.dataEmissao)}</p>
+            </div>
+
+            <div class="info-section">
+              <h2>Emitente</h2>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Razão Social</span>
+                  <span class="info-value">${nfe.emitente.nome}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">CNPJ</span>
+                  <span class="info-value">${this.formatCNPJ(nfe.emitente.cnpj)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Endereço</span>
+                  <span class="info-value">${nfe.emitente.endereco}, ${nfe.emitente.numero}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Bairro</span>
+                  <span class="info-value">${nfe.emitente.bairro}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Município</span>
+                  <span class="info-value">${nfe.emitente.municipio} - ${nfe.emitente.uf}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">CEP</span>
+                  <span class="info-value">${this.formatCEP(nfe.emitente.cep)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h2>Destinatário</h2>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Nome/Razão Social</span>
+                  <span class="info-value">${nfe.destinatario.nome}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">CNPJ/CPF</span>
+                  <span class="info-value">${this.formatCNPJ(nfe.destinatario.cnpj)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Endereço</span>
+                  <span class="info-value">${nfe.destinatario.endereco}, ${nfe.destinatario.numero}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Bairro</span>
+                  <span class="info-value">${nfe.destinatario.bairro}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Município</span>
+                  <span class="info-value">${nfe.destinatario.municipio} - ${nfe.destinatario.uf}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">CEP</span>
+                  <span class="info-value">${this.formatCEP(nfe.destinatario.cep)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h2>Valores</h2>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Valor dos Produtos</span>
+                  <span class="info-value">R$ ${this.formatCurrency(nfe.valores.produtos)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Desconto</span>
+                  <span class="info-value">R$ ${this.formatCurrency(nfe.valores.desconto)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Frete</span>
+                  <span class="info-value">R$ ${this.formatCurrency(nfe.valores.frete)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Valor Total da NF</span>
+                  <span class="info-value"><strong>R$ ${this.formatCurrency(nfe.valores.total)}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="chave-nfe">
+              <div class="label">CHAVE DE ACESSO</div>
+              <div class="value">${nfe.chave}</div>
+            </div>
+
+            <div class="actions">
+              <button onclick="window.print()" class="btn-print">
+                🖨️ Imprimir
+              </button>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+
+    formatDateTime(dateStr) {
+      if (!dateStr || dateStr === 'N/A') return 'N/A'
+      try {
+        const date = new Date(dateStr)
+        return date.toLocaleString('pt-BR')
+      } catch {
+        return dateStr
+      }
+    },
+
+    formatCNPJ(cnpj) {
+      if (!cnpj || cnpj === 'N/A') return 'N/A'
+      const numbers = cnpj.replace(/\D/g, '')
+      if (numbers.length === 14) {
+        return numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+      } else if (numbers.length === 11) {
+        return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+      }
+      return cnpj
+    },
+
+    formatCEP(cep) {
+      if (!cep || cep === 'N/A') return 'N/A'
+      const numbers = cep.replace(/\D/g, '')
+      if (numbers.length === 8) {
+        return numbers.replace(/(\d{5})(\d{3})/, '$1-$2')
+      }
+      return cep
+    },
+
+    formatCurrency(value) {
+      if (!value || value === 'N/A') return '0,00'
+      try {
+        const num = parseFloat(value)
+        return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      } catch {
+        return value
+      }
+    },
+
+    cleanBase64(base64String) {
+      // Validar entrada
+      if (!base64String || typeof base64String !== 'string') {
+        console.warn('⚠️ [CLEAN] Base64 inválido:', base64String)
+        return ''
+      }
+
+      // Remove prefixos data: URL se existirem
+      // Exemplo: "data:application/pdf;base64,JVBERi0..." -> "JVBERi0..."
+      if (base64String.includes(',')) {
+        const parts = base64String.split(',')
+        return parts[parts.length - 1]
+      }
+      return base64String
+    },
+
+    async openBase64Document(doc) {
+      try {
+        console.log('📄 [OPEN] Abrindo documento:', doc.name)
+        console.log('📄 [OPEN] Tipo:', doc.type)
+        console.log('📄 [OPEN] MIME:', doc.mimeType)
+        console.log('📄 [OPEN] Tamanho dos dados:', doc.data ? doc.data.length : 0)
+        console.log('📄 [OPEN] Primeiros 50 caracteres:', doc.data ? doc.data.substring(0, 50) : 'N/A')
+
+        // Validar se tem dados
+        if (!doc.data) {
+          throw new Error('Documento sem dados. O campo "data" está vazio ou indefinido.')
+        }
+
+        // Determinar MIME type
+        const mimeType = doc.mimeType || this.getMimeTypeFromName(doc.name)
+
+        // Limpar base64 (remover prefixos data: URL se existirem)
+        const cleanedBase64 = this.cleanBase64(doc.data)
+
+        if (!cleanedBase64) {
+          throw new Error('Não foi possível processar os dados do documento.')
+        }
+
+        console.log('📄 [OPEN] Base64 limpo - primeiros 50 caracteres:', cleanedBase64.substring(0, 50))
+
+        // Converter base64 para blob
+        const byteCharacters = atob(cleanedBase64)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: mimeType })
+
+        console.log('✅ [OPEN] Blob criado:', blob.size, 'bytes, tipo:', blob.type)
+
+        // Criar URL temporária
+        const url = URL.createObjectURL(blob)
+
+        // Abrir em nova janela
+        const newWindow = window.open(url, '_blank')
+
+        // Liberar URL após um tempo
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+        }, 60000) // 1 minuto
+
+        if (!newWindow) {
+          throw new Error('Popup bloqueado. Por favor, permita popups para este site.')
+        }
+
+        console.log('✅ [OPEN] Documento aberto com sucesso')
+      } catch (error) {
+        console.error('❌ [OPEN] Erro ao abrir documento:', error)
+        console.error('❌ [OPEN] Dados do documento:', {
+          name: doc.name,
+          type: doc.type,
+          hasData: !!doc.data,
+          dataLength: doc.data ? doc.data.length : 0
+        })
+        throw error
+      }
+    },
+
+    async downloadDocument(doc) {
+      try {
+        const fileName = doc.name
+        const mimeType = doc.mimeType || this.getMimeTypeFromName(doc.name)
+
+        // Converter base64 para blob
+        console.log('📥 [DOWNLOAD] Processando documento:', doc.name)
+        console.log('📥 [DOWNLOAD] Tamanho dos dados:', doc.data ? doc.data.length : 0)
+
+        // Validar se tem dados
+        if (!doc.data) {
+          throw new Error('Documento sem dados. O campo "data" está vazio ou indefinido.')
+        }
+
+        // Limpar base64 (remover prefixos data: URL se existirem)
+        const cleanedBase64 = this.cleanBase64(doc.data)
+
+        if (!cleanedBase64) {
+          throw new Error('Não foi possível processar os dados do documento.')
+        }
+
+        console.log('📥 [DOWNLOAD] Base64 limpo - tamanho:', cleanedBase64.length)
+
+        const byteCharacters = atob(cleanedBase64)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: mimeType })
+
+        console.log('✅ [DOWNLOAD] Blob criado:', blob.size, 'bytes')
+
+        // Criar link de download
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+
+        // Liberar URL
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+        }, 1000)
+
+        console.log('✅ Download iniciado:', fileName)
+      } catch (error) {
+        console.error('Erro ao baixar documento:', error)
+        alert('Erro ao baixar documento. Por favor, tente novamente.')
+      }
+    }
+  }
+}
+</script>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  padding: 24px 28px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.modal-header h3 i {
+  color: #2563eb;
+  font-size: 22px;
+}
+
+.btn-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 18px;
+}
+
+.btn-close:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.modal-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Estados de carregamento */
+.loading-state,
+.error-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.loader-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-state p,
+.error-state p {
+  color: #64748b;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.error-state i {
+  font-size: 48px;
+  color: #ef4444;
+  margin-bottom: 16px;
+}
+
+.empty-state i {
+  font-size: 64px;
+  color: #cbd5e1;
+  margin-bottom: 20px;
+}
+
+.empty-state h4 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+/* Lista de documentos */
+.documents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.document-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.document-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.document-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.document-icon i {
+  font-size: 24px;
+  color: #2563eb;
+}
+
+.document-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.document-description {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 6px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-size {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.document-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-view,
+.btn-download {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-view {
+  background: #2563eb;
+  color: white;
+}
+
+.btn-view:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-download {
+  background: white;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+  padding: 10px 12px;
+}
+
+.btn-download:hover {
+  background: #eff6ff;
+  transform: translateY(-1px);
+}
+
+/* Footer */
+.modal-footer {
+  padding: 20px 28px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn-secondary {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 100%;
+    max-height: 95vh;
+    margin: 10px;
+  }
+
+  .document-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .document-actions {
+    width: 100%;
+  }
+
+  .btn-view,
+  .btn-download {
+    flex: 1;
+  }
+}
+</style>

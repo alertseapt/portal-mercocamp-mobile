@@ -1,0 +1,34 @@
+# Node
+node_modules/
+
+# Build
+/dist/
+
+# Antigos e temporários
+old/
+.claude/
+
+# Testes e arquivos locais
+*.local.*
+*.test.*
+test-auth.html
+
+# IDEs e sistema
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Outros
+*.log
+
+# Vite
+*.timestamp-*.mjs
+.eslintcache
+
+# Capacitor — os projetos nativos android/ e ios/ SÃO versionados.
+# Os build outputs já são ignorados pelos .gitignore internos de cada um.
+# Apenas os assets web sincronizados por `cap sync` ficam de fora:
+android/app/src/main/assets/public/
+ios/App/App/public/
+.env
+.env.local

@@ -1,0 +1,2189 @@
+/* Vue.js Components Styles */
+
+/* Garantir Poppins em todos os componentes Vue */
+.v-enter-active, .v-leave-active,
+.loading-screen, .loading-spinner,
+.modal, .tooltip, .dropdown {
+    font-family: 'Poppins', sans-serif !important;
+}
+
+/* Loading Screen */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    color: white;
+}
+
+.loading-spinner {
+    text-align: center;
+}
+
+.loading-spinner i {
+    font-size: calc(3rem * var(--font-scale));
+    margin-bottom: 1rem;
+    animation: spin 1s linear infinite;
+}
+
+.loading-spinner p {
+    font-size: calc(1.2rem * var(--font-scale));
+    margin: 0;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Notifications */
+.notifications-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9998;
+    max-width: 400px;
+    width: 100%;
+}
+
+.notification {
+    display: flex;
+    align-items: flex-start;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 12px;
+    padding: 16px;
+    border-left: 4px solid;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.notification-success {
+    border-left-color: var(--success);
+}
+
+.notification-error {
+    border-left-color: var(--danger);
+}
+
+.notification-warning {
+    border-left-color: var(--warning);
+}
+
+.notification-info {
+    border-left-color: var(--primary);
+}
+
+.notification-icon {
+    margin-right: 12px;
+    font-size: calc(1.2rem * var(--font-scale));
+    margin-top: 2px;
+}
+
+.notification-success .notification-icon {
+    color: var(--success);
+}
+
+.notification-error .notification-icon {
+    color: var(--danger);
+}
+
+.notification-warning .notification-icon {
+    color: var(--warning);
+}
+
+.notification-info .notification-icon {
+    color: var(--primary);
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-message {
+    font-weight: 500;
+    color: var(--gray-800);
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.notification-time {
+    font-size: calc(0.85rem * var(--font-scale));
+    color: var(--gray-500);
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: var(--gray-400);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    margin-left: 8px;
+    transition: color 0.2s;
+}
+
+.notification-close:hover {
+    color: var(--gray-600);
+}
+
+/* Notification Transitions */
+.notification-enter-active,
+.notification-leave-active {
+    transition: all 0.3s ease;
+}
+
+.notification-enter-from {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.notification-leave-to {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Button Enhancements for Vue */
+.btn-success {
+    background-color: var(--success);
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #059669;
+}
+
+/* Botão Novo Agendamento - Mais chamativo */
+.btn-new-schedule {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+    padding: 12px 24px;
+    font-size: calc(16px * var(--font-scale));
+    font-weight: 600;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-new-schedule:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-new-schedule:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-new-schedule i {
+    margin-right: 8px;
+    font-size: calc(18px * var(--font-scale));
+}
+
+.btn-info {
+    background-color: var(--primary);
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: var(--primary-dark);
+}
+
+.btn-secondary {
+    background-color: var(--gray-500);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: var(--gray-600);
+}
+
+/* Vue Transitions */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+    transition: all 0.3s ease;
+}
+
+.slide-enter-from {
+    transform: translateX(-100%);
+    opacity: 0;
+}
+
+.slide-leave-to {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .notifications-container {
+        left: 20px;
+        right: 20px;
+        max-width: none;
+    }
+    
+    .notification {
+        padding: 12px;
+    }
+    
+    .notification-message {
+        font-size: calc(0.9rem * var(--font-scale));
+    }
+}
+
+/* Loading states for components */
+.component-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.skeleton-loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Empty states */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--gray-500);
+}
+
+.empty-state i {
+    font-size: calc(3rem * var(--font-scale));
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px;
+    font-size: calc(1.2rem * var(--font-scale));
+    color: var(--gray-700);
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: calc(0.9rem * var(--font-scale));
+}
+
+/* Vue.js specific enhancements */
+[v-cloak] {
+    display: none;
+}
+
+/* Status badges enhancements */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-badge i {
+    font-size: var(--status-badge-font-size);
+}
+
+.status-badge.contestado {
+  background: #fd7e14;
+  color: #fff;
+}
+
+/* Action buttons in table */
+.btn-icon {
+    margin-right: 4px;
+}
+
+.btn-icon:last-child {
+    margin-right: 0;
+}
+
+/* Hover effects for interactive elements */
+.activity-item:hover {
+    background-color: var(--gray-50);
+}
+
+.data-table tbody tr:hover {
+    background-color: var(--gray-50);
+}
+
+/* Loading spinners in components */
+.component-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--gray-300);
+    border-top: 2px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Accessibility improvements */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus states for keyboard navigation */
+.btn:focus,
+.menu-item:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+    .notifications-container,
+    .loading-screen {
+        display: none !important;
+    }
+}
+
+/* ======================
+   SCHEDULE COMPONENTS
+   ====================== */
+
+/* Schedule List */
+.schedules-list {
+    padding: 20px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.page-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.schedules-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    table-layout: auto;
+}
+
+.schedules-table th,
+.schedules-table td {
+    padding: 6px 4px;
+    text-align: left;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 13px;
+}
+
+/* Coluna Checkbox - reduzir largura */
+.schedules-table .checkbox-column,
+.schedules-table th:first-child,
+.schedules-table td:first-child {
+    width: 3% !important;
+    min-width: 35px !important;
+    max-width: 45px !important;
+    padding: 6px 2px !important;
+}
+
+/* Centralizar checkbox no cabeçalho da primeira coluna */
+.schedules-table th:first-child {
+    text-align: center !important;
+}
+
+/* Colunas de data (Solicitação e Entrega) - reduzir largura */
+.schedules-table td[style*="text-align: center"]:not(.col-vols):not(.col-status),
+.schedules-table th[style*="text-align: center"]:not(.col-vols):not(.col-status) {
+    width: 10% !important;
+    min-width: 80px !important;
+    max-width: 110px !important;
+    font-size: 12px !important;
+    padding: 6px 3px !important;
+}
+
+/* Responsividade da tabela de agendamentos */
+/* Desktop grande (acima de 1600px) */
+@media (min-width: 1600px) {
+    .schedules-table th,
+    .schedules-table td {
+        font-size: 11px;
+        padding: 10px 8px;
+    }
+    
+    .schedules-table .status-badge {
+        font-size: 9px !important;
+        padding: 5px 8px !important;
+    }
+}
+
+/* Desktop médio (1200px - 1599px) */
+@media (min-width: 1200px) and (max-width: 1599px) {
+    .schedules-table th,
+    .schedules-table td {
+        font-size: 13px;
+        padding: 8px 6px;
+    }
+    
+    .schedules-table .status-badge {
+        font-size: 11px !important;
+        padding: 4px 7px !important;
+        letter-spacing: 0.2px !important;
+    }
+    
+    /* Reduzir largura da coluna OC */
+    .schedules-table .col-oc,
+    .schedules-table th.col-oc,
+    .schedules-table td.col-oc {
+        max-width: 75px !important;
+        width: 75px !important;
+        min-width: 75px !important;
+        padding: 6px 4px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Reduzir largura da coluna Cliente */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(4):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(4):not(.col-oc) {
+        max-width: 220px !important;
+        width: 220px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Reduzir largura da coluna N° NF-e */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(2),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(2) {
+        max-width: 70px !important;
+        width: 70px !important;
+        font-size: 13px !important;
+    }
+    
+    /* Reduzir largura da coluna Status */
+    .schedules-table td:nth-child(6),
+    .schedules-table th:nth-child(6) {
+        width: 90px !important;
+        min-width: 90px !important;
+    }
+    
+    /* Reduzir largura da coluna Volumes */
+    .schedules-table .col-vols {
+        width: 50px !important;
+        min-width: 50px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Reduzir fontes das colunas de data */
+    .schedules-table td[style*="text-align: center"] {
+        font-size: 12px !important;
+    }
+}
+
+/* Desktop pequeno / Tablet grande (992px - 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+    .schedules-table th,
+    .schedules-table td {
+        font-size: 11px;
+        padding: 10px 8px;
+    }
+    
+    .schedules-table .status-badge {
+        font-size: 9px !important;
+        padding: 5px 8px !important;
+        letter-spacing: 0.3px !important;
+    }
+    
+    /* Reduzir largura da coluna OC */
+    .schedules-table .col-oc,
+    .schedules-table th.col-oc,
+    .schedules-table td.col-oc {
+        max-width: 100px !important;
+        width: 100px !important;
+        min-width: 100px !important;
+        padding: 10px 6px !important;
+        font-size: 10px !important;
+    }
+    
+    /* Reduzir largura da coluna Cliente */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(4):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(4):not(.col-oc) {
+        max-width: 300px !important;
+        width: 300px !important;
+    }
+    
+    /* Reduzir largura da coluna N° NF-e */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(2),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(2) {
+        max-width: 90px !important;
+        width: 90px !important;
+    }
+}
+
+/* Tablet (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991px) {
+    .schedules-table th,
+    .schedules-table td {
+        font-size: 10px;
+        padding: 8px 6px;
+    }
+    
+    .schedules-table .status-badge {
+        font-size: 8px !important;
+        padding: 4px 6px !important;
+        letter-spacing: 0.2px !important;
+    }
+    
+    /* Reduzir ainda mais a coluna OC */
+    .schedules-table .col-oc,
+    .schedules-table th.col-oc,
+    .schedules-table td.col-oc {
+        max-width: 80px !important;
+        width: 80px !important;
+        min-width: 80px !important;
+        padding: 8px 4px !important;
+        font-size: 9px !important;
+    }
+    
+    /* Reduzir largura da coluna Cliente */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(4):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(4):not(.col-oc) {
+        max-width: 250px !important;
+        width: 250px !important;
+        font-size: 9px !important;
+    }
+    
+    /* Reduzir largura da coluna Transportadora (para usuários nível 1) */
+    .schedules-table td:nth-child(4)[v-if],
+    .schedules-table th:nth-child(4)[v-if] {
+        max-width: 180px !important;
+        width: 180px !important;
+        font-size: 9px !important;
+    }
+    
+    /* Reduzir largura da coluna N° NF-e */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(2),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(2) {
+        max-width: 80px !important;
+        width: 80px !important;
+        font-size: 9px !important;
+    }
+    
+    /* Reduzir largura da coluna Status */
+    .schedules-table td:nth-child(6),
+    .schedules-table th:nth-child(6) {
+        width: 100px !important;
+        min-width: 100px !important;
+    }
+    
+    /* Reduzir largura da coluna Volumes */
+    .schedules-table .col-vols {
+        width: 60px !important;
+        min-width: 60px !important;
+        font-size: 9px !important;
+    }
+    
+    /* Reduzir fontes das colunas de data */
+    .schedules-table td[style*="text-align: center"] {
+        font-size: 9px !important;
+    }
+}
+
+/* Mobile grande (576px - 767px) */
+@media (min-width: 576px) and (max-width: 767px) {
+    .schedules-table th,
+    .schedules-table td {
+        font-size: 9px;
+        padding: 6px 4px;
+    }
+    
+    .schedules-table .status-badge {
+        font-size: 7px !important;
+        padding: 3px 5px !important;
+        letter-spacing: 0.1px !important;
+    }
+    
+    /* Reduzir ainda mais a coluna OC */
+    .schedules-table .col-oc,
+    .schedules-table th.col-oc,
+    .schedules-table td.col-oc {
+        max-width: 70px !important;
+        width: 70px !important;
+        min-width: 70px !important;
+        padding: 6px 3px !important;
+        font-size: 8px !important;
+    }
+    
+    /* Reduzir largura da coluna Cliente */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(3):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(4):not(.col-oc),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(4):not(.col-oc) {
+        max-width: 200px !important;
+        width: 200px !important;
+        font-size: 8px !important;
+    }
+    
+    /* Reduzir largura da coluna Transportadora (para usuários nível 1) */
+    .schedules-table td:nth-child(4)[v-if],
+    .schedules-table th:nth-child(4)[v-if] {
+        max-width: 150px !important;
+        width: 150px !important;
+        font-size: 8px !important;
+    }
+    
+    /* Reduzir largura da coluna N° NF-e */
+    .content-area:not(.schedules-list) .schedules-table td:nth-child(2),
+    .content-area:not(.schedules-list) .schedules-table th:nth-child(2) {
+        max-width: 70px !important;
+        width: 70px !important;
+        font-size: 8px !important;
+    }
+    
+    /* Reduzir largura da coluna Status */
+    .schedules-table td:nth-child(6),
+    .schedules-table th:nth-child(6) {
+        width: 80px !important;
+        min-width: 80px !important;
+    }
+    
+    /* Reduzir largura da coluna Volumes */
+    .schedules-table .col-vols {
+        width: 50px !important;
+        min-width: 50px !important;
+        font-size: 8px !important;
+    }
+    
+    /* Reduzir fontes das colunas de data */
+    .schedules-table td[style*="text-align: center"] {
+        font-size: 8px !important;
+    }
+}
+
+/* Mobile pequeno (até 575px) - usar layout de cards */
+@media (max-width: 575px) {
+    .schedules-table {
+        display: none; /* Esconder tabela em mobile pequeno */
+    }
+    
+    /* O layout de cards mobile já está implementado no App.vue */
+}
+
+/* Ajustes de largura das colunas */
+/* Coluna N° NF-e - Página Principal (2ª coluna) */
+.content-area:not(.schedules-list) .schedules-table td:nth-child(2),
+.content-area:not(.schedules-list) .schedules-table th:nth-child(2) {
+    width: 8% !important;
+    min-width: 60px !important;
+    max-width: 90px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px !important;
+}
+
+/* Coluna OC - Permite quebra de linha quando o texto ultrapassa o espaço */
+.schedules-table .col-oc,
+.schedules-table th.col-oc,
+.schedules-table td.col-oc,
+.content-area:not(.schedules-list) .schedules-table td.col-oc,
+.content-area:not(.schedules-list) .schedules-table th.col-oc,
+.schedules-list .schedules-table td.col-oc,
+.schedules-list .schedules-table th.col-oc {
+    width: 9% !important;
+    min-width: 70px !important;
+    max-width: 100px !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    text-align: center !important;
+    padding: 6px 4px !important;
+    vertical-align: middle !important;
+    line-height: 1.3 !important;
+    font-size: 12px !important;
+}
+
+/* Coluna Cliente - Página Principal (3ª ou 4ª coluna dependendo se OC está presente) */
+.content-area:not(.schedules-list) .schedules-table td:nth-child(3):not(.col-oc),
+.content-area:not(.schedules-list) .schedules-table th:nth-child(3):not(.col-oc),
+.content-area:not(.schedules-list) .schedules-table td:nth-child(4):not(.col-oc),
+.content-area:not(.schedules-list) .schedules-table th:nth-child(4):not(.col-oc) {
+    width: 25% !important;
+    min-width: 150px !important;
+    max-width: 300px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px !important;
+}
+
+/* Coluna N° NF-e - Página Histórico (2ª coluna) */
+.schedules-list .schedules-table td:nth-child(2),
+.schedules-list .schedules-table th:nth-child(2) {
+    width: 8% !important;
+    min-width: 60px !important;
+    max-width: 90px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px !important;
+}
+
+/* Coluna Cliente - Página Histórico (3ª ou 4ª coluna dependendo se OC está presente). Exclui col-date (Entrega) e col-vols que têm largura compacta. */
+.schedules-list .schedules-table td:nth-child(3):not(.col-oc):not(.col-date):not(.col-vols),
+.schedules-list .schedules-table th:nth-child(3):not(.col-oc):not(.col-date):not(.col-vols),
+.schedules-list .schedules-table td:nth-child(4):not(.col-oc):not(.col-date):not(.col-vols),
+.schedules-list .schedules-table th:nth-child(4):not(.col-oc):not(.col-date):not(.col-vols) {
+    width: 25% !important;
+    min-width: 150px !important;
+    max-width: 300px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px !important;
+}
+
+/* Coluna Status - Página Principal (6) e Histórico (6) */
+.schedules-table td:nth-child(6),
+.schedules-table th:nth-child(6) {
+    width: 10% !important;
+    min-width: 80px !important;
+    max-width: 120px !important;
+}
+
+/* Célula de status com menos padding para dar mais espaço à badge */
+.schedules-table td:has(.status-badge),
+.schedules-table td:nth-child(6) {
+    padding: 4px !important;
+}
+
+/* Status badge dentro da tabela ocupa toda a célula */
+.schedules-table td .status-badge {
+    display: block !important;
+    width: calc(100% - 6px) !important;
+    margin: 3px !important;
+    padding: 4px 6px !important;
+    text-align: center !important;
+    min-height: 18px !important;
+    box-sizing: border-box !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.schedules-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    font-size: 13px !important;
+    padding: 8px 6px !important;
+}
+
+.schedules-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Coluna de ações/informações (última coluna) - proporcional */
+.schedules-table td:last-child,
+.schedules-table th:last-child {
+    width: 5% !important;
+    min-width: 50px !important;
+    max-width: 70px !important;
+    text-align: center !important;
+    padding: 6px 3px !important;
+}
+
+
+
+.table-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ajustes de ícones na tabela */
+.schedules-table .fa-sort,
+.schedules-table .sort-icon,
+.schedules-table .sort-icon-inactive {
+    font-size: 10px;
+    transition: font-size 0.3s ease;
+}
+
+/* Responsividade para ícones */
+@media (min-width: 992px) and (max-width: 1199px) {
+    .schedules-table .fa-sort,
+    .schedules-table .sort-icon,
+    .schedules-table .sort-icon-inactive {
+        font-size: 9px;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+    .schedules-table .fa-sort,
+    .schedules-table .sort-icon,
+    .schedules-table .sort-icon-inactive {
+        font-size: 8px;
+    }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+    .schedules-table .fa-sort,
+    .schedules-table .sort-icon,
+    .schedules-table .sort-icon-inactive {
+        font-size: 7px;
+    }
+}
+
+.loading-container {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.loading-container i {
+    font-size: calc(2rem * var(--font-scale));
+    margin-bottom: 10px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: calc(3rem * var(--font-scale));
+    margin-bottom: 20px;
+    color: #dee2e6;
+}
+
+.empty-state h3 {
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: calc(4px * var(--status-badge-scale)) calc(8px * var(--status-badge-scale)) !important;
+    border-radius: calc(12px * var(--status-badge-scale)) !important;
+    color: white;
+    font-size: clamp(6px, var(--status-badge-font-size), var(--status-badge-font-size)) !important;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    container-type: inline-size;
+}
+
+/* Fallback para redimensionamento automático usando classes JavaScript */
+.status-badge.auto-resize-small {
+  font-size: clamp(4px, 6px, 8px) !important;
+  letter-spacing: 0.2px;
+  padding: 4px 6px !important;
+}
+
+.status-badge.auto-resize-tiny {
+  font-size: clamp(3px, 5px, 6px) !important;
+  letter-spacing: 0.1px;
+  padding: 3px 4px !important;
+}
+
+/* Container queries para redimensionamento automático de texto (browsers modernos) */
+@container (max-width: 120px) {
+  .status-badge {
+    font-size: clamp(4px, 1.5cqw, 7px) !important;
+    padding: 4px 6px !important;
+  }
+}
+
+@container (max-width: 80px) {
+  .status-badge {
+    font-size: clamp(3px, 1cqw, 6px) !important;
+    padding: 3px 4px !important;
+  }
+}
+
+@container (max-width: 60px) {
+  .status-badge {
+    font-size: clamp(3px, 0.8cqw, 5px) !important;
+    padding: 2px 3px !important;
+  }
+}
+
+.status-badge.warning { background: #ffc107; color: #212529; }
+.status-badge.info { background: #17a2b8; }
+.status-badge.success { background: #28a745; }
+.status-badge.danger { background: #dc3545; }
+.status-badge.dark { background: #343a40; }
+.status-badge.secondary { background: #6c757d; }
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    gap: 10px;
+}
+
+.page-info {
+    color: #6c757d;
+    font-size: calc(14px * var(--font-scale));
+}
+
+/* Schedule Filters */
+.schedule-filters {
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.filter-header h4 {
+    margin: 0;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-count {
+    background: #007bff;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: calc(12px * var(--font-scale));
+    font-weight: 500;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.filter-content {
+    padding: 20px;
+}
+
+.filter-row {
+    display: flex;
+    gap: 15px;
+    align-items: end;
+    margin-bottom: 15px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+}
+
+.filter-group label {
+    font-size: calc(12px * var(--font-scale));
+    color: #666;
+    font-weight: 500;
+}
+
+.filter-group input,
+.filter-group select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: calc(14px * var(--font-scale));
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.filter-actions-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: end;
+}
+
+.quick-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.quick-filter-label {
+    font-size: calc(12px * var(--font-scale));
+    color: #666;
+    font-weight: 500;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 5vh 5vw; /* 5% em cada lado = 90% para o modal */
+}
+
+/* Remover padding quando for modal de edição de cliente para ocupar 95% da altura */
+.modal-overlay:has(.edit-client-modal) {
+    padding: 0 !important;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Modal de marcação não deve ter overflow no content, apenas no body */
+.modal-content.schedule-booking-modal {
+    overflow: hidden !important;
+    max-height: 95vh !important; /* Sobrescrever o max-height padrão */
+}
+
+/* Modal de edição de cliente - ocupar 95% da altura */
+.modal-content.edit-client-modal {
+    height: 95vh !important;
+    max-height: 95vh !important;
+    min-height: 95vh !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+}
+
+.modal-content.large {
+    max-width: 95%;
+    width: 95%;
+}
+
+/* Exceção para BatchProductsModal - 98% da largura */
+.modal-content.large.batch-products-modal,
+.batch-products-modal.modal-content.large {
+    max-width: 98vw !important;
+    width: 98vw !important;
+}
+
+/* NFe Info Modal - 98% da largura do display */
+.modal-content.nfe-info-modal.large {
+    width: 98vw !important;
+    height: 90vh !important;
+    max-width: 98vw !important;
+    max-height: 90vh !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important; /* Evitar scroll no modal principal */
+}
+
+/* NFe Info Grid - More columns for large modal */
+.modal-content.nfe-info-modal.large .info-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.modal-content.medium {
+    max-width: 800px;
+}
+
+/* Modal de Agendamento de Marcação - 95% da altura */
+.modal-content.schedule-booking-modal {
+    height: 95vh !important;
+    max-height: 95vh !important;
+    min-height: 95vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    margin: 0 auto !important;
+}
+
+/* Overlay específico para modal de marcação - sem padding vertical */
+.modal-overlay.booking-modal-overlay {
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Body do modal de marcação com scroll */
+.schedule-booking-modal .modal-body.booking-modal-body {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    max-width: calc(100% - 200px);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.nfe-number {
+    background: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: calc(14px * var(--font-scale));
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+    flex-shrink: 1;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    font-size: calc(24px * var(--font-scale));
+    cursor: pointer;
+    color: #dc3545;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+/* Ocultar botão btn-close no OrderDetailsModal */
+.order-details-modal .modal-header .btn-close,
+.order-details-modal .modal-header button.btn-close {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
+}
+
+/* Ocultar botão btn-close no LotPhotosModal (Evidências) - apenas do header */
+.photos-modal .modal-header .btn-close,
+.photos-modal .modal-header button.btn-close:not(.btn-close-footer),
+button.btn-close[data-v-afe62606]:not(.btn-close-footer) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
+    pointer-events: none !important;
+}
+
+.btn-close:hover {
+    color: #c82333;
+    background-color: rgba(220, 53, 69, 0.1);
+    border-radius: 4px;
+}
+
+.modal-body {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Modal body dentro do edit-client-modal */
+.edit-client-modal .modal-body {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 1.5rem !important;
+}
+
+/* Remover padding quando a aba NF-e PDF estiver ativa para maximizar espaço */
+.modal-body:has(.nfe-pdf-tab-content) {
+    padding: 0 !important;
+    max-height: none !important;
+    height: 100% !important;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+
+/* Footer minimal quando a aba NF-e está ativa - ocupar mínimo espaço possível */
+.modal-footer.minimal-footer {
+    padding: 0.1rem 0.5rem !important; /* Padding mínimo - apenas espaço para o texto */
+    min-height: auto !important;
+    max-height: 20px !important; /* Altura máxima ainda mais reduzida */
+    height: auto !important;
+    margin: 0 !important;
+    flex-shrink: 0;
+    gap: 0 !important; /* Remover gap entre elementos */
+    align-items: center !important; /* Centralizar verticalmente */
+    display: flex !important; /* Garantir flex */
+}
+
+.modal-footer.minimal-footer .footer-info {
+    font-size: 0.6rem !important; /* Fonte ainda menor */
+    line-height: 1 !important; /* Altura da linha mínima - sem espaçamento extra */
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 0 0 auto !important; /* Não expandir */
+    align-items: center;
+    justify-content: flex-end;
+    display: flex;
+}
+
+.modal-footer.minimal-footer .footer-info small {
+    font-size: 0.6rem !important;
+    line-height: 1 !important; /* Sem espaçamento extra */
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.modal-footer.minimal-footer .footer-info i {
+    font-size: 0.6rem !important; /* Ícone menor */
+    margin-right: 0.15rem !important;
+    margin-left: 0 !important;
+    line-height: 1 !important;
+}
+
+.footer-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+/* Upload Area */
+.upload-area {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.upload-area:hover {
+    border-color: #007bff;
+    background: #f0f8ff;
+}
+
+.upload-area.drag-over {
+    border-color: #007bff;
+    background: #f0f8ff;
+}
+
+.upload-area i {
+    font-size: calc(3rem * var(--font-scale));
+    color: #ccc;
+    margin-bottom: 15px;
+}
+
+.upload-area h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.upload-area p {
+    margin: 0 0 20px 0;
+    color: #666;
+}
+
+.file-info {
+    margin-top: 15px;
+    padding: 10px;
+    background: #e9ecef;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-size {
+    color: #6c757d;
+    font-size: calc(12px * var(--font-scale));
+}
+
+/* Progress Steps */
+.progress-steps {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+    max-width: 150px;
+}
+
+.step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 60%;
+    width: 80%;
+    height: 2px;
+    background: #dee2e6;
+}
+
+.step.completed::after {
+    background: #28a745;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #dee2e6;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.step.active .step-number {
+    background: #007bff;
+    color: white;
+}
+
+.step.completed .step-number {
+    background: #28a745;
+    color: white;
+}
+
+.step-label {
+    font-size: calc(12px * var(--font-scale));
+    color: #6c757d;
+    text-align: center;
+}
+
+.step.active .step-label {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.step.completed .step-label {
+    color: #28a745;
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 100%;
+    height: 4px;
+    background: #e9ecef;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #007bff;
+    transition: width 0.3s ease;
+}
+
+/* Info Grid */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 15px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    background: #fafbfc;
+}
+
+.info-item label {
+    font-size: calc(12px * var(--font-scale));
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-item span {
+    font-size: calc(14px * var(--font-scale));
+    color: #333;
+    word-break: break-all;
+    overflow-wrap: break-word;
+}
+
+.info-item .code {
+    font-family: monospace;
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: calc(12px * var(--font-scale));
+}
+
+.info-item .nfe-key {
+    font-family: monospace;
+    background: #f8f9fa;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: calc(11px * var(--font-scale));
+    word-break: break-all;
+    line-height: 1.3;
+    border: 1px solid #e9ecef;
+    color: #495057;
+}
+
+/* Products Table */
+.products-table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+.products-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1300px;
+}
+
+.products-table th,
+.products-table td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+    font-size: calc(12px * var(--font-scale));
+}
+
+.products-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.products-table th i {
+    margin-left: 5px;
+    color: #6c757d;
+}
+
+.products-table input {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: calc(12px * var(--font-scale));
+}
+
+.products-table input:disabled {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+/* Coluna de fator com largura reduzida */
+.products-table th:nth-child(6),
+.products-table td:nth-child(6) {
+    width: 80px;
+    max-width: 80px;
+    text-align: center;
+}
+
+.products-table th:nth-child(6) input,
+.products-table td:nth-child(6) input {
+    text-align: center;
+}
+
+/* Modal Tabs */
+.modal-tabs {
+    display: flex;
+    border-bottom: 1px solid #dee2e6;
+    background: #f8f9fa;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 #f8f9fa;
+    /* Forçar exibição da scrollbar sempre */
+    scrollbar-gutter: stable;
+    /* Garantir que a scrollbar sempre apareça */
+    padding-bottom: 6px;
+}
+
+.modal-tabs::-webkit-scrollbar {
+    height: 6px;
+    display: block !important;
+    -webkit-appearance: none;
+}
+
+.modal-tabs::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 3px;
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-tabs::-webkit-scrollbar-thumb {
+    background: #cbd5e0 !important;
+    border-radius: 3px;
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+    /* Forçar thumb sempre visível */
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+    min-width: 20px;
+    /* Garantir que o thumb sempre apareça */
+    -webkit-appearance: none;
+}
+
+.modal-tabs::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0 !important;
+}
+
+/* Forçar thumb sempre visível mesmo sem hover */
+.modal-tabs:hover::-webkit-scrollbar-thumb {
+    background: #cbd5e0 !important;
+}
+
+/* Garantir que o thumb não seja ocultado automaticamente */
+.modal-tabs::-webkit-scrollbar-thumb:active {
+    background: #a0aec0 !important;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 15px 20px;
+    cursor: pointer;
+    color: #6c757d;
+    font-size: calc(14px * var(--font-scale));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: fit-content;
+}
+
+.tab-button:hover {
+    background: #e9ecef;
+}
+
+.tab-button.active {
+    color: #007bff;
+    border-bottom: 2px solid #007bff;
+}
+
+.tab-content {
+    min-height: 300px;
+}
+
+/* JSON Container */
+.json-container {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.json-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.json-header h4 {
+    margin: 0;
+    color: #333;
+}
+
+.json-content {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: monospace;
+    font-size: calc(12px * var(--font-scale));
+    white-space: pre-wrap;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Product Edit Modal */
+.product-edit-modal .modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.editable-fields {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.editable-fields h4 {
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: calc(14px * var(--font-scale));
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.form-control.is-invalid {
+    border-color: #dc3545;
+}
+
+.invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 5px;
+    font-size: calc(12px * var(--font-scale));
+    color: #dc3545;
+}
+
+.form-text {
+    font-size: calc(12px * var(--font-scale));
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+/* History Section */
+.history-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.history-header h4 {
+    margin: 0;
+    color: #333;
+}
+
+.history-timeline {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    gap: 15px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-date {
+    font-size: calc(12px * var(--font-scale))   ;
+    color: #6c757d;
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+.history-content h5 {
+    margin: 0 0 5px 0;
+    font-size: calc(14px * var(--font-scale));
+    color: #333;
+}
+
+.history-content p {
+    margin: 0;
+    font-size: calc(12px * var(--font-scale));
+    color: #666;
+}
+
+.changes {
+    margin-top: 5px;
+}
+
+.changes-indicator {
+    position: absolute;
+    top: 20px;
+    right: 60px;
+    background: #ffc107;
+    color: #212529;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: calc(12px * var(--font-scale));
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.changes-indicator i {
+    font-size: calc(8px * var(--font-scale));
+}
+
+/* Error Container */
+.error-container {
+    margin-bottom: 20px;
+}
+
+.error-message {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-close-error {
+    background: none;
+    border: none;
+    color: #721c24;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+/* Copy Toast */
+.copy-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #28a745;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10001;
+    animation: fadeInOut 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(20px); }
+    20% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Client Selection */
+.client-selection {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.client-selection h5 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modal-content.large {
+        width: 95%;
+        max-width: 95%;
+        margin: 20px;
+    }
+    
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-actions-buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .quick-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .products-table {
+        font-size: calc(11px * var(--font-scale));
+    }
+    
+    .progress-steps {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .step:not(:last-child)::after {
+        display: none;
+    }
+    
+    .modal-tabs {
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .tab-button {
+        white-space: nowrap;
+        flex-shrink: 0;
+        min-width: fit-content;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+    
+    .modal-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .modal-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .history-item {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .history-date {
+        min-width: auto;
+    }
+}
+
+/* Responsividade tipográfica e espaçamento para mobile */
+@media (max-width: 768px) {
+    /* Página principal - Headers e títulos */
+    .page-header h2 {
+        font-size: 1.25rem !important; /* Reduzido de ~2rem */
+        margin-bottom: 2px !important;
+    }
+
+    /* Contadores de agendamentos */
+    .agendamentos-count {
+        font-size: 0.85rem !important;
+    }
+
+    .count-badge {
+        font-size: 0.75rem !important;
+        padding: 4px 8px !important;
+    }
+
+    .count-label {
+        font-size: 0.8rem !important;
+    }
+
+    /* Tabela de agendamentos - Fontes menores */
+    .schedules-table th {
+        font-size: 0.75rem !important; /* Headers ainda menores */
+        font-weight: 600 !important;
+        padding: 16px 10px !important; /* Mais padding vertical */
+    }
+
+    .schedules-table td {
+        font-size: 0.8rem !important; /* Conteúdo das células menor */
+        padding: 16px 10px !important; /* Mais espaçamento vertical */
+        line-height: 1.4 !important; /* Melhor legibilidade */
+    }
+
+    /* Aumentar altura das linhas para melhor touch */
+    .schedules-table tbody tr {
+        min-height: 60px !important;
+    }
+
+    /* Status badges menores mas legíveis */
+    .status-badge {
+        font-size: 0.7rem !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+    }
+
+    /* Botões de ação menores */
+    .btn {
+        font-size: 0.8rem !important;
+        padding: 8px 12px !important;
+    }
+
+    .btn-sm {
+        font-size: 0.7rem !important;
+        padding: 6px 10px !important;
+    }
+
+    /* Headers das seções */
+    .header-title-section h2 {
+        font-size: 1.1rem !important;
+    }
+
+    /* Cards e conteúdo geral */
+    .card-title {
+        font-size: 1rem !important;
+    }
+
+    .card-text {
+        font-size: 0.85rem !important;
+        line-height: 1.4 !important;
+    }
+
+    /* Melhorar espaçamento dos filtros */
+    .filters-container {
+        padding: 15px !important;
+    }
+
+    .filter-group label {
+        font-size: 0.8rem !important;
+        margin-bottom: 4px !important;
+    }
+
+    .form-control {
+        font-size: 0.85rem !important;
+        padding: 8px 12px !important;
+    }
+
+    /* Search input */
+    .search-input {
+        font-size: 0.85rem !important;
+        padding: 10px 12px !important;
+    }
+
+    /* Informações dos agendamentos - mais espaço vertical */
+    .schedules-list {
+        padding: 15px !important;
+    }
+
+    /* Tornar as células mais touch-friendly */
+    .schedules-table td:first-child,
+    .schedules-table th:first-child {
+        padding-left: 15px !important;
+    }
+
+    .schedules-table td:last-child,
+    .schedules-table th:last-child {
+        padding-right: 15px !important;
+    }
+
+    /* Melhorar interação touch */
+    .clickable-row {
+        min-height: 48px !important; /* Mínimo recomendado para touch */
+        cursor: pointer;
+    }
+
+    .clickable-row:active {
+        background-color: #e3f2fd !important;
+        transform: scale(0.98);
+        transition: all 0.1s ease;
+    }
+
+    /* Área de toque mínima para botões (exceto botões de ação da lista de expedições e botão NF-e info, que têm tamanho próprio) */
+    .btn, button:not(.expeditions-action-btn):not(.btn-nfe-info) {
+        min-height: 44px !important;
+        min-width: 44px !important;
+    }
+
+    /* Modal responsivo */
+    .modal-dialog {
+        margin: 10px !important;
+        max-width: calc(100% - 20px) !important;
+    }
+
+    .modal-content {
+        font-size: 0.9rem !important;
+    }
+
+    .modal-title {
+        font-size: 1.1rem !important;
+    }
+
+    /* Dropdown menu mobile friendly */
+    .user-dropdown {
+        font-size: 0.85rem !important;
+        min-width: 180px !important;
+    }
+
+    .dropdown-item {
+        padding: 12px 15px !important;
+        min-height: 44px !important;
+    }
+
+    /* Loading states */
+    .loading-spinner {
+        font-size: 1rem !important;
+    }
+
+    .loading-text {
+        font-size: 0.9rem !important;
+    }
+
+    /* Empty states */
+    .empty-state {
+        font-size: 0.9rem !important;
+        padding: 30px 20px !important;
+    }
+
+    /* Tooltip mobile adjustments */
+    .tooltip {
+        font-size: 0.75rem !important;
+    }
+} 

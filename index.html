@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover, shrink-to-fit=no">
+    <title>Portal Mercocamp</title>
+    <link rel="icon" href="/src/assets/images/logo.png" type="image/png">
+    <!-- Poppins Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+</head>
+<body style="font-family: 'Poppins', sans-serif;">
+    <div id="app">
+        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f5f5f5;color:#333;">
+            <div style="text-align:center;">
+                <div style="width:40px;height:40px;border:3px solid #ddd;border-top-color:#0d6efd;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;"></div>
+                <p style="margin:0;font-size:1rem;">Carregando sistema...</p>
+            </div>
+        </div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+    <!-- Configuração dinâmica da API - pode ser editado após o build -->
+    <script src="/config.js"></script>
+    <script>
+        // CAPTURA GLOBAL DE ERROS (apenas log - fallback em main.js para erros de mount)
+        window.addEventListener('error', function(event) {
+            console.log('=== ERRO JAVASCRIPT CAPTURADO (INDEX.HTML) ===');
+            console.log('Mensagem:', event.message);
+            console.log('Arquivo:', event.filename);
+            console.log('Linha:', event.lineno);
+            console.log('Coluna:', event.colno);
+            console.log('Erro:', event.error);
+            console.log('Stack trace:', event.error?.stack);
+        });
+
+        window.addEventListener('unhandledrejection', function(event) {
+            console.log('=== PROMISE REJEITADA CAPTURADA (INDEX.HTML) ===');
+            console.log('Motivo:', event.reason);
+            console.log('Promise:', event.promise);
+        });
+
+        // DEBUG: Interceptar localStorage.removeItem para detectar quando token é removido
+        const originalRemoveItem = localStorage.removeItem;
+        localStorage.removeItem = function(key) {
+            if (key === 'token' || key === 'authToken' || key === 'user') {
+                console.log('=== [INDEX.HTML] TOKEN/USER REMOVIDO ===');
+                console.log('Key removida:', key);
+                console.log('Stack trace:', new Error().stack);
+            }
+            return originalRemoveItem.call(this, key);
+        };
+        
+        console.log('=== INDEX.HTML CARREGADO ===');
+        console.log('URL atual:', window.location.href);
+        console.log('Token no localStorage:', !!localStorage.getItem('token'));
+        console.log('User no localStorage:', !!localStorage.getItem('user'));
+    </script>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

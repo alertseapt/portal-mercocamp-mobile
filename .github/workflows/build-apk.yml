@@ -1,0 +1,80 @@
+name: Build Android APK
+
+# Dispara ao criar uma tag "v*" (ex.: v1.16.3) ou manualmente.
+# O APK gerado é anexado a uma GitHub Release com link estável de download.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app (Vite)
+        run: npm run build
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'tools platform-tools build-tools;34.0.0 platforms;android-34'
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             "artifacts/portal-mercocamp-${GITHUB_REF_NAME}.apk"
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-mercocamp-apk
+          path: artifacts/*.apk
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
+          name: Portal Mercocamp ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            APK do app Portal Mercocamp (Android).
+
+            - Build: debug (não assinado para Play Store; instalável via "fontes desconhecidas")
+            - Backend: produção (https://portal.mercocamptech.com.br/api)
+
+            Baixe o arquivo `.apk` abaixo e instale no dispositivo Android.

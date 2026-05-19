@@ -1,0 +1,61 @@
+{
+  "name": "portalmercocamp-mobile",
+  "version": "1.16.3",
+  "description": "Portal Mercocamp - App mobile (Android/iOS via Capacitor)",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite --host",
+    "build": "node generate-build-info.js && npx vite build && node post-build.cjs",
+    "build:integrated": "node generate-build-info.js && npx vite build && node post-build.cjs && node post-build.js",
+    "preview": "npx vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "format": "prettier --write .",
+    "start": "npx vite",
+    "serve": "npx vite preview",
+    "cap:sync": "npx cap sync",
+    "cap:add:android": "npx cap add android",
+    "cap:add:ios": "npx cap add ios",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios",
+    "mobile:build": "npm run build && npx cap sync"
+  },
+  "keywords": [
+    "logistics",
+    "warehouse",
+    "vue",
+    "mobile",
+    "capacitor",
+    "android",
+    "ios"
+  ],
+  "author": "Mercocamp Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@vue/eslint-config-prettier": "^9.0.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-vue": "^9.33.0",
+    "prettier": "^3.6.2",
+    "serve": "^14.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "axios": "^1.10.0",
+    "chart.js": "^4.5.0",
+    "exceljs": "^4.4.0",
+    "file-saver": "^2.0.5",
+    "jspdf": "^4.1.0",
+    "node-sped-pdf": "^1.0.65",
+    "pinia": "^2.3.1",
+    "vite": "^5.4.19",
+    "vue": "^3.5.17",
+    "vue-router": "^4.5.1",
+    "xlsx": "^0.18.5"
+  }
+}

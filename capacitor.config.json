@@ -1,0 +1,8 @@
+{
+  "appId": "br.com.mercocamptech.portal",
+  "appName": "Portal Mercocamp",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
