@@ -12,8 +12,22 @@ rodar como aplicativo nativo Android e iOS.
 - O recurso de exportação (serviço externo) fica desabilitado no app a menos
   que `window.EXPORTS_SERVICE_URL` seja configurado em `config.js`.
 
-> Observação CORS: o backend precisa permitir a origem do WebView
-> (`https://localhost` / `capacitor://localhost`) para o app consumir a API.
+### CORS
+
+No app nativo a página é servida localmente pelo WebView
+(`https://localhost` no Android, `capacitor://localhost` no iOS) — **não**
+de `https://portal.mercocamptech.com.br`. Portanto chamadas à API são
+cross-origin e a origem **não** é o domínio do portal.
+
+Solução adotada: **CapacitorHttp** habilitado em `capacitor.config.json`.
+Ele intercepta `fetch`/`XHR` (axios usa XHR) e roteia pela camada HTTP
+**nativa**, que não está sujeita a CORS. Assim **não é preciso alterar o
+backend** (que, inclusive, já libera requisições sem header `Origin`).
+
+Alternativas (não usadas): (a) adicionar `https://localhost` e
+`capacitor://localhost` ao `allowedOrigins` do backend; (b) transformar o
+app em wrapper de URL remota (`server.url`), que seria same-origin mas
+exigiria conexão sempre online e perderia o empacotamento offline.
 
 ## Pré-requisitos
 
