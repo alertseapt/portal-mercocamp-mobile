@@ -13,7 +13,11 @@ const path = require('path');
 
 // Configurações
 const DIST_DIR = path.join(__dirname, 'dist');
-const PRODUCTION_API_URL = '/api'; // Usar proxy reverso em produção
+// Repo mobile: páginas standalone (login.html etc.) nunca rodam atrás do
+// proxy IIS — o WebView serve de origem local. URL absoluta de produção é o
+// fallback de última instância (a detecção nativa em config.js/api-standalone.js
+// já resolve antes; isto cobre o caso de window.API_BASE_URL ausente).
+const PRODUCTION_API_URL = 'https://portal.mercocamptech.com.br/api';
 
 console.log('=== Post-Build para Produção ===');
 

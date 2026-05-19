@@ -8,6 +8,26 @@
   'use strict'
 
   function getApiBaseUrl() {
+    // App nativo (Capacitor): backend é SEMPRE produção (sem proxy/localhost
+    // no dispositivo). Checado antes de window.API_URL para funcionar mesmo
+    // que o config.js esteja desatualizado/substituído pós-deploy.
+    if (typeof window !== 'undefined') {
+      var p = window.location.protocol
+      var h = window.location.hostname
+      var port = window.location.port
+      var isNative =
+        (window.Capacitor &&
+          typeof window.Capacitor.isNativePlatform === 'function' &&
+          window.Capacitor.isNativePlatform()) ||
+        p === 'capacitor:' ||
+        (p === 'https:' &&
+          (h === 'localhost' || h === '127.0.0.1') &&
+          !port)
+      if (isNative) {
+        return 'https://portal.mercocamptech.com.br/api'
+      }
+    }
+
     // Se window.API_URL estiver definido pelo config.js, usar
     if (typeof window !== 'undefined' && window.API_URL) {
       return window.API_URL

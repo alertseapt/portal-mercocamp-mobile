@@ -29,6 +29,24 @@ window.API_CONFIG = {
     const hostname = window.location.hostname
     const fullUrl = window.location.href
 
+    // App nativo (Capacitor): o WebView serve a página de uma origem local
+    // (capacitor://localhost no iOS, https://localhost sem porta no Android).
+    // Não há proxy IIS nem localhost no dispositivo → backend é PRODUÇÃO.
+    var __isNative =
+      (window.Capacitor &&
+        typeof window.Capacitor.isNativePlatform === 'function' &&
+        window.Capacitor.isNativePlatform()) ||
+      protocol === 'capacitor:' ||
+      (protocol === 'https:' &&
+        (hostname === 'localhost' || hostname === '127.0.0.1') &&
+        !window.location.port)
+    if (__isNative) {
+      console.log(
+        '🔧 [CONFIG] App nativo (Capacitor) → Backend PRODUÇÃO: https://portal.mercocamptech.com.br/api'
+      )
+      return 'https://portal.mercocamptech.com.br/api'
+    }
+
     console.log('🔧 [CONFIG] Detectando ambiente automaticamente...')
     console.log('🔧 [CONFIG] Protocol:', protocol)
     console.log('🔧 [CONFIG] Hostname:', hostname)
