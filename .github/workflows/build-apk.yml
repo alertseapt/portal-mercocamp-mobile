@@ -27,6 +27,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Gate determinístico: garante que o bundle aponta para produção no
+      # ambiente nativo (Android/iOS). Falha = não gera APK quebrado.
+      - name: Test API resolution (gate)
+        run: npm run test:api
+
+      # Conectividade real com produção — informativo (não bloqueia release
+      # por instabilidade momentânea do servidor).
+      - name: Test backend connectivity
+        run: npm run test:connectivity
+        continue-on-error: true
+
       - name: Build web app (Vite)
         run: npm run build
 

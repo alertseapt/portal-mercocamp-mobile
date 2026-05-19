@@ -1,6 +1,6 @@
 {
   "name": "portalmercocamp-mobile",
-  "version": "1.16.4",
+  "version": "1.16.5",
   "description": "Portal Mercocamp - App mobile (Android/iOS via Capacitor)",
   "type": "module",
   "scripts": {
@@ -17,7 +17,10 @@
     "cap:add:ios": "npx cap add ios",
     "cap:open:android": "npx cap open android",
     "cap:open:ios": "npx cap open ios",
-    "mobile:build": "npm run build && npx cap sync"
+    "mobile:build": "npm run build && npx cap sync",
+    "test:api": "node scripts/test-api-resolution.mjs",
+    "test:connectivity": "node scripts/test-connectivity.mjs",
+    "test:mobile": "npm run test:api && npm run test:connectivity"
   },
   "keywords": [
     "logistics",
