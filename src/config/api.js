@@ -39,13 +39,38 @@ function getEnvironmentLabel() {
  */
 const NATIVE_API_BASE = 'https://portal.mercocamptech.com.br/api'
 
+/**
+ * Detecta o app nativo de forma determinística — NÃO depende de
+ * window.Capacitor estar injetado no momento em que este módulo é avaliado
+ * (BASE_URL é resolvido no load; se o bridge ainda não tiver injetado o
+ * global, a detecção falharia e cairíamos no ramo localhost → /api,
+ * apontando para o próprio aparelho).
+ *
+ * No nativo o WebView serve a página de uma origem local sem porta:
+ *  - iOS:                 capacitor://localhost
+ *  - Android (https scheme): https://localhost   (configurado em capacitor.config.json)
+ * Um deploy web real nunca é https://localhost sem porta; o dev local usa
+ * porta (ex.: localhost:8000).
+ */
 function isNativeApp() {
   try {
-    return !!(
+    if (
       window.Capacitor &&
       typeof window.Capacitor.isNativePlatform === 'function' &&
       window.Capacitor.isNativePlatform()
-    )
+    ) {
+      return true
+    }
+    const { protocol, hostname, port } = window.location
+    if (protocol === 'capacitor:') return true
+    if (
+      protocol === 'https:' &&
+      (hostname === 'localhost' || hostname === '127.0.0.1') &&
+      !port
+    ) {
+      return true
+    }
+    return false
   } catch (_) {
     return false
   }
