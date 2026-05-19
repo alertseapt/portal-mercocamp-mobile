@@ -4086,13 +4086,46 @@ export default {
       console.log(`📊 Ordenando por ${column} (${this.sortDirection})`)
     },
 
+    /**
+     * App nativo (Capacitor): WebView serve a página de uma origem local
+     * (capacitor://localhost no iOS, https://localhost sem porta no Android).
+     * Mesma heurística usada em src/config/api.js.
+     */
+    isCapacitorNative() {
+      try {
+        if (
+          window.Capacitor &&
+          typeof window.Capacitor.isNativePlatform === 'function' &&
+          window.Capacitor.isNativePlatform()
+        ) {
+          return true
+        }
+        const { protocol, hostname, port } = window.location
+        if (protocol === 'capacitor:') return true
+        if (
+          protocol === 'https:' &&
+          (hostname === 'localhost' || hostname === '127.0.0.1') &&
+          !port
+        ) {
+          return true
+        }
+        return false
+      } catch (_) {
+        return false
+      }
+    },
+
     // Métodos de responsividade móvel
     setupResizeListener() {
       const handleResize = () => {
         const wasMobile = this.isMobile
 
         this.windowWidth = window.innerWidth
-        const newIsMobile = this.windowWidth < 768
+        // No app nativo (Capacitor) força UX mobile independente do tamanho:
+        // hamburger sempre visível + sidebar em overlay com texto+ícone.
+        // Evita o ramo "tablet" que colapsa a sidebar a ícones em ~768-991px
+        // (tela do Tab A8 caía exatamente nesse intervalo).
+        const newIsMobile = this.isCapacitorNative() || this.windowWidth < 768
         this.isMobile = newIsMobile
 
         // Auto-configurar estado da sidebar baseado no tamanho da tela
