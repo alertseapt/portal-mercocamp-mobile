@@ -1510,7 +1510,14 @@ span.fa, span.fas, span.far, span.fab, span.fal, span.fad, span[class*="fa-"] {
     left: auto !important;
     z-index: 1060 !important;
 }
+
+/* Sidebar é overlay no app — main-content NÃO deve reservar a margem
+   esquerda dos 260px do layout desktop. Conteúdo ocupa 98% do display
+   centralizado, com folga inferior para o FAB do hamburger. */
 .is-native .main-content {
+    margin: 0 auto !important;
+    width: 98% !important;
+    max-width: 98vw !important;
     padding-bottom: 90px !important;
 }
 
