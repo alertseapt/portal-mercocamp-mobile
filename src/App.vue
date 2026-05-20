@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app" :class="{ 'is-native': isNative }">
     <!-- Universal Loading Overlay -->
     <div v-if="loading || bulkActionLoading" class="universal-loading-overlay">
       <div class="loading-content">
@@ -2455,6 +2455,7 @@ export default {
       windowWidth: 0,
       isSidebarOpen: false,
       isSidebarCollapsed: false,
+      isNative: false, // app rodando em Capacitor (definido em setupResizeListener)
       hoverSidebarExpanded: false, // sidebar expandida ao passar o mouse (desktop recolhida)
       mobileFiltersOpen: false, // Controle para dropdown de filtros em mobile
       // Posição de scroll salva ao travar o body em mobile (para evitar "pulo" ao abrir/fechar sidebar)
@@ -4125,7 +4126,8 @@ export default {
         // hamburger sempre visível + sidebar em overlay com texto+ícone.
         // Evita o ramo "tablet" que colapsa a sidebar a ícones em ~768-991px
         // (tela do Tab A8 caía exatamente nesse intervalo).
-        const newIsMobile = this.isCapacitorNative() || this.windowWidth < 768
+        this.isNative = this.isCapacitorNative()
+        const newIsMobile = this.isNative || this.windowWidth < 768
         this.isMobile = newIsMobile
 
         // Auto-configurar estado da sidebar baseado no tamanho da tela

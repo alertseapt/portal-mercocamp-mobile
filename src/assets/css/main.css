@@ -1497,6 +1497,23 @@ span.fa, span.fas, span.far, span.fab, span.fal, span.fad, span[class*="fa-"] {
     }
 }
 
+/* App nativo (Capacitor): hamburger flutuante SEMPRE visível no canto
+   inferior direito, independente da largura — sobrepõe o @media acima.
+   Reserva espaço inferior em main-content para o último item não ficar
+   embaixo do botão (mesmo padrão da regra mobile do web). */
+.is-native .mobile-menu-toggle-fixed {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 15px !important;
+    top: auto !important;
+    left: auto !important;
+    z-index: 1060 !important;
+}
+.is-native .main-content {
+    padding-bottom: 90px !important;
+}
+
 /* Garantir que o botão seja visível apenas em mobile */
 @media (max-width: 768px) {
     /* Prevenir overflow horizontal em mobile */
