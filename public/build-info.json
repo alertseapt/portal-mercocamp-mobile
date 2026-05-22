@@ -1,7 +1,7 @@
 {
-  "version": "1.16.10",
-  "buildHash": "5b6b43f2",
-  "timestamp": "2026-05-22T13:03:28.125Z",
-  "buildTime": 1779455008125,
+  "version": "1.16.12",
+  "buildHash": "f8ccd76b",
+  "timestamp": "2026-05-22T14:34:36.595Z",
+  "buildTime": 1779460476595,
   "environment": "development"
 }

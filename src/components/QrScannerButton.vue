@@ -68,6 +68,17 @@
           </template>
           <template v-else>
             <p class="qr-message">{{ message }}</p>
+            <!-- Diagnóstico (fase de testes): valor lido e erro técnico -->
+            <div v-if="scannedValue" class="qr-diag">
+              <div class="qr-row">
+                <span class="qr-label">Lido do QR</span>
+                <span class="qr-value">{{ scannedValue }}</span>
+              </div>
+              <div v-if="errorDetail" class="qr-row">
+                <span class="qr-label">Detalhe</span>
+                <span class="qr-value">{{ errorDetail }}</span>
+              </div>
+            </div>
           </template>
         </div>
 
@@ -97,6 +108,8 @@ export default {
       found: false,
       message: '',
       carga: null,
+      scannedValue: '',
+      errorDetail: '',
     }
   },
   methods: {
@@ -139,6 +152,7 @@ export default {
           barcodes[0].displayValue ||
           ''
         ).trim()
+        this.scannedValue = conteudo
         await this.buscarCarga(conteudo)
       } catch (error) {
         // Cancelamento manual em alguns dispositivos chega como erro
@@ -190,16 +204,29 @@ export default {
 
     /** Busca a carga pelo ID lido e exibe o resultado. */
     async buscarCarga(loadId) {
+      this.errorDetail = ''
       if (!loadId) {
         this.showResult(false, 'QR code vazio ou inválido.')
         return
       }
       try {
-        const resp = await apiService.get(
-          `/loads/${encodeURIComponent(loadId)}`
-        )
+        let resp = await apiService.get(`/loads/${encodeURIComponent(loadId)}`)
+        // CapacitorHttp pode entregar a resposta como string (sem content-type
+        // JSON detectado) — tenta parsear antes de desistir.
+        if (typeof resp === 'string') {
+          try {
+            resp = JSON.parse(resp)
+          } catch (_) {
+            /* mantém string para diagnóstico abaixo */
+          }
+        }
         const data = resp?.data || resp
         if (!data || !data.load_id) {
+          // Sucesso HTTP mas sem o formato esperado: registra o que veio
+          this.errorDetail =
+            typeof resp === 'string'
+              ? `resposta texto: ${resp.slice(0, 120)}`
+              : `resposta sem load_id: ${JSON.stringify(resp).slice(0, 120)}`
           this.showResult(
             false,
             `Nenhuma carga encontrada para o ID "${loadId}".`
@@ -211,10 +238,15 @@ export default {
         this.message = ''
         this.resultVisible = true
       } catch (error) {
-        // 404 (Carga não encontrada) ou outro erro de busca
+        // Distingue "não encontrada" (404) de falhas técnicas (rede, auth, etc).
+        const detail = String(error?.message || 'erro desconhecido')
+        const isNotFound = /não encontrada|not found|404/i.test(detail)
+        this.errorDetail = isNotFound ? '' : detail
         this.showResult(
           false,
-          `Nenhuma carga encontrada para o ID "${loadId}".`
+          isNotFound
+            ? `Nenhuma carga encontrada para o ID "${loadId}".`
+            : `Falha ao consultar a carga "${loadId}". Verifique a conexão e tente novamente.`
         )
       }
     },
@@ -231,6 +263,8 @@ export default {
       this.carga = null
       this.message = ''
       this.found = false
+      this.scannedValue = ''
+      this.errorDetail = ''
     },
   },
 }
@@ -370,6 +404,17 @@ export default {
   color: #212529;
   font-size: 0.95rem;
   line-height: 1.5;
+}
+
+.qr-diag {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed #e0e0e0;
+}
+
+.qr-diag .qr-value {
+  font-family: monospace;
+  font-size: 0.82rem;
 }
 
 .qr-result-footer {
