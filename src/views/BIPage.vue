@@ -14056,7 +14056,7 @@ export default {
   color: #5a6c7d;
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .sla-cards-grid {
     grid-template-columns: 1fr;
   }

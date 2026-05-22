@@ -3254,7 +3254,7 @@ export default {
 
 /* 992px: manter layout igual App.vue (sem coluna na busca) */
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   /* Container e dropdown ocupam toda a largura e ficam centralizados */
   .schedules-list {
     width: 100%;
@@ -3606,7 +3606,7 @@ export default {
 }
 
 /* Responsividade para o indicador de busca */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .search-active-card {
     flex-direction: column;
     gap: 1rem;
@@ -3712,7 +3712,7 @@ export default {
 }
 
 /* Header mobile para filtros - oculto apenas em desktop (mobile mostra o botão) */
-@media (min-width: 769px) {
+@media (orientation: landscape) {
   .filters-mobile-header {
     display: none !important;
   }
@@ -4626,7 +4626,7 @@ export default {
 }
 
 /* Responsividade para agendamentos count */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .page-header {
     flex-direction: column;
     align-items: stretch;
@@ -4829,7 +4829,7 @@ export default {
 }
 
 /* Responsive Pagination - caber na área visível sem scroll horizontal */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .pagination-controls {
     flex-direction: column;
     gap: 12px;
@@ -5068,7 +5068,7 @@ export default {
 }
 
 /* Mobile: mesmo breakpoint da Solicitação (768px) */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .mobile-cards-view {
     display: flex;
     flex-direction: column;

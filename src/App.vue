@@ -9777,7 +9777,7 @@ table td .status-badge,
   }
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .status-badge {
     font-size: var(--status-badge-font-size);
     max-width: 120px;
@@ -10061,7 +10061,7 @@ table td .status-badge,
 /* ========================================
    MEDIA QUERIES PARA header-actions (Mobile)
    ======================================== */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   /* Responsividade para seleção */
   .checkbox-column {
     width: 40px;
@@ -10276,7 +10276,7 @@ table td .status-badge,
   }
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .bulk-actions-bar {
     flex-direction: column;
     align-items: stretch;
@@ -10519,7 +10519,7 @@ table td .status-badge,
 }
 
 /* Responsividade para a caixa de data */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .date-change-group {
     flex-direction: column;
     gap: 0.25rem;
@@ -10726,7 +10726,7 @@ table td .status-badge,
 }
 
 /* Responsividade para o indicador de busca */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .search-active-card {
     flex-direction: column;
     gap: 1rem;
@@ -10941,7 +10941,7 @@ table td .status-badge,
 }
 
 /* Responsividade para agendamentos count */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .header-title-section {
     gap: 2px;
   }
@@ -11302,7 +11302,7 @@ table td .status-badge,
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .top-bar {
     flex-direction: row;
     justify-content: space-between;
@@ -11717,7 +11717,7 @@ table td .status-badge,
   }
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .filter-row {
     flex-direction: column;
     width: 100%;
@@ -12335,7 +12335,7 @@ table td .status-badge,
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .pagination-controls {
     flex-direction: column;
     gap: 12px;
@@ -12438,7 +12438,7 @@ table td .status-badge,
    ============================================ */
 
 /* Ocultar tabela desktop em mobile */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .desktop-table-view {
     display: none !important;
   }
@@ -13244,7 +13244,7 @@ table td .status-badge,
 }
 
 /* Desktop: Ocultar cards mobile e mostrar tabela */
-@media (min-width: 769px) {
+@media (orientation: landscape) {
   .mobile-cards-view {
     display: none !important;
   }
@@ -13259,7 +13259,7 @@ table td .status-badge,
 }
 
 /* Mobile: Ocultar tabela desktop */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   /* Prevenir overflow horizontal em mobile */
   html,
   body,

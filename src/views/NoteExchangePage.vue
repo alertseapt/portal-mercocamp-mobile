@@ -2141,7 +2141,7 @@ h1 {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .note-exchange-page {
     padding: 20px 15px;
   }

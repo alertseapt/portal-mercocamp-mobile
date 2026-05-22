@@ -1554,7 +1554,7 @@ export default {
   color: #92400e;
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .filters-container {
     flex-direction: column;
     align-items: stretch;

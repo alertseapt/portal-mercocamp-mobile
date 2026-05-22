@@ -4665,7 +4665,7 @@ export default {
   letter-spacing: normal !important;
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .rejeicoes {
     padding: 1rem;
   }

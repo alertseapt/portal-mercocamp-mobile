@@ -2664,7 +2664,7 @@ export default {
   border-top: 1px solid #e9ecef;
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .edit-client-modal {
     width: 95%;
     margin: 1rem;
@@ -2734,7 +2734,7 @@ export default {
   border: 1px solid #fc8181;
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .admin-page {
     padding: 12px;
   }

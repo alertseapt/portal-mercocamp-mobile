@@ -1177,7 +1177,7 @@ button:disabled {
   }
 }
 
-@media (max-width: 768px) {
+@media (orientation: portrait) {
   .portal-content {
     padding: 1rem;
   }
