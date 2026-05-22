@@ -8,8 +8,9 @@
   'use strict'
 
   function getApiBaseUrl() {
-    // App nativo (Capacitor): backend é SEMPRE produção (sem proxy/localhost
-    // no dispositivo). Checado antes de window.API_URL para funcionar mesmo
+    // App nativo (Capacitor): backend default = HOMOLOGAÇÃO. O toggle em
+    // </DEV> > Sistema grava 'producao' em localStorage.native_backend_env
+    // para alternar. Checado antes de window.API_URL para funcionar mesmo
     // que o config.js esteja desatualizado/substituído pós-deploy.
     if (typeof window !== 'undefined') {
       var p = window.location.protocol
@@ -24,7 +25,16 @@
           (h === 'localhost' || h === '127.0.0.1') &&
           !port)
       if (isNative) {
-        return 'https://portal.mercocamptech.com.br/api'
+        var env = 'homolog'
+        try {
+          var v =
+            window.localStorage &&
+            window.localStorage.getItem('native_backend_env')
+          if (v === 'producao') env = 'producao'
+        } catch (_) {}
+        return env === 'producao'
+          ? 'https://portal.mercocamptech.com.br/api'
+          : 'https://recebhomolog.mercocamptech.com.br/api'
       }
     }
 

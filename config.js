@@ -31,7 +31,10 @@ window.API_CONFIG = {
 
     // App nativo (Capacitor): o WebView serve a página de uma origem local
     // (capacitor://localhost no iOS, https://localhost sem porta no Android).
-    // Não há proxy IIS nem localhost no dispositivo → backend é PRODUÇÃO.
+    // Lê localStorage.native_backend_env (gravado pelo toggle em </DEV> >
+    // Sistema): 'producao' → portal.mercocamptech.com.br; default 'homolog'
+    // → recebhomolog.mercocamptech.com.br. Precisa estar em sincronia com
+    // src/config/api.js e api-standalone.js (login.html lê dessa pilha).
     var __isNative =
       (window.Capacitor &&
         typeof window.Capacitor.isNativePlatform === 'function' &&
@@ -41,10 +44,24 @@ window.API_CONFIG = {
         (hostname === 'localhost' || hostname === '127.0.0.1') &&
         !window.location.port)
     if (__isNative) {
+      var __env = 'homolog'
+      try {
+        var __v =
+          window.localStorage &&
+          window.localStorage.getItem('native_backend_env')
+        if (__v === 'producao') __env = 'producao'
+      } catch (_) {}
+      var __base =
+        __env === 'producao'
+          ? 'https://portal.mercocamptech.com.br/api'
+          : 'https://recebhomolog.mercocamptech.com.br/api'
       console.log(
-        '🔧 [CONFIG] App nativo (Capacitor) → Backend PRODUÇÃO: https://portal.mercocamptech.com.br/api'
+        '🔧 [CONFIG] App nativo (Capacitor) → Backend ' +
+          (__env === 'producao' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO') +
+          ': ' +
+          __base
       )
-      return 'https://portal.mercocamptech.com.br/api'
+      return __base
     }
 
     console.log('🔧 [CONFIG] Detectando ambiente automaticamente...')
