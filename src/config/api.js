@@ -35,9 +35,52 @@ function getEnvironmentLabel() {
  * App mobile (Capacitor): o WebView serve os assets de um host local
  * (capacitor://localhost / https://localhost), então a detecção por
  * window.location apontaria para o backend errado. Nesta build nativa o
- * backend é SEMPRE produção (não há proxy IIS nem localhost no dispositivo).
+ * backend precisa ser definido explicitamente — produção OU homologação.
+ *
+ * Default: HOMOLOGAÇÃO (decisão do time: app de testes inicia em homolog).
+ * Override: toggle em </DEV> > Sistema grava `native_backend_env` no
+ * localStorage; getNativeBackendEnv() lê na inicialização para resolver
+ * BASE_URL antes do bundle subir.
  */
-const NATIVE_API_BASE = 'https://portal.mercocamptech.com.br/api'
+export const NATIVE_PRODUCTION_API = 'https://portal.mercocamptech.com.br/api'
+export const NATIVE_HOMOLOG_API = 'https://recebhomolog.mercocamptech.com.br/api'
+
+const NATIVE_BACKEND_ENV_KEY = 'native_backend_env'
+
+/** Retorna 'producao' | 'homolog'. Default 'homolog' (qualquer valor inválido também cai aqui). */
+export function getNativeBackendEnv() {
+  try {
+    if (typeof localStorage === 'undefined') return 'homolog'
+    const v = localStorage.getItem(NATIVE_BACKEND_ENV_KEY)
+    return v === 'producao' ? 'producao' : 'homolog'
+  } catch (_) {
+    return 'homolog'
+  }
+}
+
+/**
+ * Define o ambiente do backend para o app nativo. Persiste em localStorage e,
+ * por padrão, recarrega a página para que BASE_URL (resolvido no load) reflita
+ * a nova URL imediatamente. Limpa o token/usuário porque sessões de prod e
+ * homolog não são intercambiáveis (DBs separados; tokens dão 401 cruzados).
+ */
+export function setNativeBackendEnv(env, { reload = true } = {}) {
+  const normalized = env === 'producao' ? 'producao' : 'homolog'
+  try {
+    localStorage.setItem(NATIVE_BACKEND_ENV_KEY, normalized)
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+  } catch (_) {}
+  if (reload && typeof window !== 'undefined') {
+    window.location.reload()
+  }
+}
+
+function getNativeApiBase() {
+  return getNativeBackendEnv() === 'producao'
+    ? NATIVE_PRODUCTION_API
+    : NATIVE_HOMOLOG_API
+}
 
 /**
  * Detecta o app nativo de forma determinística — NÃO depende de
@@ -52,7 +95,7 @@ const NATIVE_API_BASE = 'https://portal.mercocamptech.com.br/api'
  * Um deploy web real nunca é https://localhost sem porta; o dev local usa
  * porta (ex.: localhost:8000).
  */
-function isNativeApp() {
+export function isNativeApp() {
   try {
     if (
       window.Capacitor &&
@@ -78,11 +121,13 @@ function isNativeApp() {
 
 function getApiUrl() {
   if (isNativeApp()) {
+    const base = getNativeApiBase()
+    const env = getNativeBackendEnv()
     console.log(
-      '🔧 [API CONFIG] App nativo (Capacitor) detectado → Backend PRODUÇÃO:',
-      NATIVE_API_BASE
+      `🔧 [API CONFIG] App nativo (Capacitor) → Backend ${env === 'producao' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}:`,
+      base
     )
-    return NATIVE_API_BASE
+    return base
   }
 
   const protocol = window.location.protocol

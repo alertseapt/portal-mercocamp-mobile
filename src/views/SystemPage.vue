@@ -15,6 +15,79 @@
 
     <!-- Services List -->
     <div v-else class="services-container">
+      <!-- Backend (App nativo) — toggle entre Produção e Homologação.
+           Visível apenas no app nativo: no navegador a URL é resolvida
+           automaticamente pelo hostname. -->
+      <div v-if="isNativeApp" class="service-card">
+        <div class="service-header" style="cursor: default">
+          <div class="service-title-section">
+            <div
+              class="service-icon"
+              :style="{
+                background: isProductionBackend
+                  ? 'linear-gradient(135deg, #dc3545 0%, #a71d2a 100%)'
+                  : 'linear-gradient(135deg, #17a2b8 0%, #117a8b 100%)',
+              }"
+            >
+              <i class="fas fa-server"></i>
+            </div>
+            <div class="service-info">
+              <h3>Backend do App (Nativo)</h3>
+              <p class="service-description">
+                Define o ambiente que o app utiliza para todas as requisições.
+                Trocar recarrega o app e força novo login (sessões de produção
+                e homologação não são intercambiáveis).
+              </p>
+            </div>
+          </div>
+          <div class="service-status">
+            <span
+              class="backend-badge"
+              :class="isProductionBackend ? 'is-prod' : 'is-homolog'"
+            >
+              {{ isProductionBackend ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO' }}
+            </span>
+          </div>
+        </div>
+        <div class="service-body-wrapper">
+          <div class="service-body">
+            <div class="config-section">
+              <label class="config-label">
+                <i class="fas fa-toggle-on"></i>
+                Usar backend de produção
+              </label>
+              <div class="backend-toggle-row">
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    :checked="isProductionBackend"
+                    @change="onToggleBackend($event.target.checked)"
+                  />
+                  <span class="slider"></span>
+                </label>
+                <span class="backend-toggle-hint">
+                  Desligado = Homologação (padrão) · Ligado = Produção
+                </span>
+              </div>
+            </div>
+            <div class="config-section">
+              <label class="config-label">
+                <i class="fas fa-link"></i>
+                URL ativa
+              </label>
+              <div class="config-value backend-url-box">
+                <code>{{ activeBackendUrl }}</code>
+              </div>
+              <p class="config-hint">
+                <i class="fas fa-info-circle"></i>
+                Produção: {{ NATIVE_PRODUCTION_API }}<br />
+                Homologação: {{ NATIVE_HOMOLOG_API }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- M1 Atacadista Óptico Special Rule -->
       <div class="service-card">
         <div
@@ -546,12 +619,22 @@
 
 <script>
 import axios from 'axios'
-import { BASE_URL } from '../config/api'
+import {
+  BASE_URL,
+  NATIVE_PRODUCTION_API,
+  NATIVE_HOMOLOG_API,
+  isNativeApp as detectNativeApp,
+  getNativeBackendEnv,
+  setNativeBackendEnv,
+} from '../config/api'
 
 export default {
   name: 'SystemPage',
   data() {
     return {
+      // Constantes expostas para o template (compor o hint das duas URLs).
+      NATIVE_PRODUCTION_API,
+      NATIVE_HOMOLOG_API,
       loading: true,
       actionLoading: false,
       showExpeditionNotFoundList: false,
@@ -575,6 +658,19 @@ export default {
       },
     }
   },
+  computed: {
+    isNativeApp() {
+      return detectNativeApp()
+    },
+    isProductionBackend() {
+      return getNativeBackendEnv() === 'producao'
+    },
+    activeBackendUrl() {
+      return this.isProductionBackend
+        ? NATIVE_PRODUCTION_API
+        : NATIVE_HOMOLOG_API
+    },
+  },
   mounted() {
     // Verificar permissão antes de carregar (apenas levels 0 e 1)
     const userData = localStorage.getItem('user')
@@ -597,6 +693,24 @@ export default {
     this.stopPolling()
   },
   methods: {
+    onToggleBackend(toProduction) {
+      const targetEnv = toProduction ? 'producao' : 'homolog'
+      const targetLabel = toProduction ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'
+      const ok = window.confirm(
+        `Trocar backend para ${targetLabel}?\n\n` +
+          'O app vai recarregar e a sessão atual será encerrada — você ' +
+          'precisará fazer login novamente no ambiente selecionado.'
+      )
+      if (!ok) {
+        // Restaura visual do toggle (o checkbox já mudou de estado no DOM).
+        this.$forceUpdate()
+        return
+      }
+      // setNativeBackendEnv persiste em localStorage, limpa token/usuário e
+      // recarrega a página para que BASE_URL reflita a nova URL.
+      setNativeBackendEnv(targetEnv)
+    },
+
     async loadExpeditionMonitorStatus(silent = false) {
       // Salvar posição do scroll antes de atualizar (se não for atualização silenciosa)
       const scrollPosition = !silent
@@ -908,6 +1022,88 @@ export default {
 </script>
 
 <style scoped>
+/* === Card "Backend do App" (nativo) === */
+.backend-badge {
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 12px;
+  color: #fff;
+}
+.backend-badge.is-prod {
+  background: #dc3545;
+}
+.backend-badge.is-homolog {
+  background: #17a2b8;
+}
+
+.backend-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.backend-toggle-hint {
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.backend-url-box {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 4px;
+  word-break: break-all;
+}
+.backend-url-box code {
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: #212529;
+}
+
+/* Switch reutilizável (estilo iOS). Scoped: não vaza para outras páginas. */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #ced4da;
+  border-radius: 28px;
+  transition: background-color 0.2s;
+}
+.switch .slider::before {
+  content: '';
+  position: absolute;
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+}
+.switch input:checked + .slider {
+  background-color: #dc3545; /* vermelho = produção */
+}
+.switch input:checked + .slider::before {
+  transform: translateX(22px);
+}
+
 .system-page {
   padding: 24px;
   scroll-behavior: auto;
