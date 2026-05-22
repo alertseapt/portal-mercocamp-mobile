@@ -20,6 +20,11 @@
       <i class="fas" :class="isSidebarOpen ? 'fa-times' : 'fa-bars'"></i>
     </button>
 
+    <!-- Leitor de QR code da carga (canto superior direito) -->
+    <QrScannerButton
+      v-if="isMobile && !loading && !bulkActionLoading"
+    />
+
     <!-- Main App -->
     <div
       v-if="!loading && !bulkActionLoading"
@@ -2086,6 +2091,7 @@ import CargaDescargaInformacoesGeraisPage from './views/CargaDescargaInformacoes
 import FaturasLista from './views/FaturasLista.vue'
 import FinanceiroSolicitacoes from './views/FinanceiroSolicitacoes.vue'
 import SystemDialog from './components/SystemDialog.vue'
+import QrScannerButton from './components/QrScannerButton.vue'
 import { checkPermission, checkUserLevel } from './utils/permissions.js'
 import { BASE_URL } from './config/api.js'
 import apiService from './services/api.js'
@@ -2435,6 +2441,7 @@ export default {
     FaturasLista,
     FinanceiroSolicitacoes,
     SystemDialog,
+    QrScannerButton,
   },
 
   data() {
