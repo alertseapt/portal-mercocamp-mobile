@@ -119,7 +119,9 @@ export function isNativeApp() {
   }
 }
 
-function getApiUrl() {
+// Exportado para testes (scripts/test-api-resolution.mjs) — recalcula a URL a
+// partir de window/localStorage atuais, sem depender de re-import do módulo.
+export function getApiUrl() {
   if (isNativeApp()) {
     const base = getNativeApiBase()
     const env = getNativeBackendEnv()
