@@ -36,16 +36,8 @@
               <span class="qr-value">{{ carga.load_id || '—' }}</span>
             </div>
             <div class="qr-row">
-              <span class="qr-label">Status</span>
-              <span class="qr-value">{{ carga.status || '—' }}</span>
-            </div>
-            <div class="qr-row">
               <span class="qr-label">Operação</span>
               <span class="qr-value">{{ carga.operation || '—' }}</span>
-            </div>
-            <div class="qr-row">
-              <span class="qr-label">Armazém</span>
-              <span class="qr-value">{{ carga.storage?.name || '—' }}</span>
             </div>
             <div class="qr-row">
               <span class="qr-label">Transportadora</span>
@@ -61,9 +53,32 @@
               <span class="qr-label">Doca</span>
               <span class="qr-value">{{ carga.dock || '—' }}</span>
             </div>
-            <div class="qr-row">
-              <span class="qr-label">Agendamentos</span>
-              <span class="qr-value">{{ carga.schedules_count ?? '—' }}</span>
+
+            <!-- Histórico de alterações da carga: data/hora + ação (e comentário, quando houver). -->
+            <div class="qr-history">
+              <div class="qr-history-title">
+                <i class="fas fa-history"></i>
+                Histórico
+              </div>
+              <div
+                v-if="historicEntries.length === 0"
+                class="qr-history-empty"
+              >
+                Sem alterações registradas.
+              </div>
+              <ol v-else class="qr-history-list">
+                <li
+                  v-for="(entry, idx) in historicEntries"
+                  :key="idx"
+                  class="qr-history-item"
+                >
+                  <div class="qr-history-when">{{ formatDateTime(entry.timestamp) }}</div>
+                  <div class="qr-history-action">{{ entry.action || '—' }}</div>
+                  <div v-if="entry.comment" class="qr-history-comment">
+                    {{ entry.comment }}
+                  </div>
+                </li>
+              </ol>
             </div>
           </template>
           <template v-else>
@@ -112,7 +127,57 @@ export default {
       errorDetail: '',
     }
   },
+  computed: {
+    /**
+     * Lista achatada e ordenada (mais antiga → mais recente) das entradas
+     * do histórico. O back-end devolve `historic` como objeto cujas chaves
+     * são `entry_<timestamp>`; aqui converto pra array, ordeno pelo
+     * timestamp da entrada e protejo contra string (parse tardio) e null.
+     */
+    historicEntries() {
+      let raw = this.carga && this.carga.historic
+      if (!raw) return []
+      if (typeof raw === 'string') {
+        try {
+          raw = JSON.parse(raw)
+        } catch (_) {
+          return []
+        }
+      }
+      if (typeof raw !== 'object') return []
+      const items = []
+      for (const key of Object.keys(raw)) {
+        const v = raw[key]
+        if (v && typeof v === 'object') {
+          items.push({
+            timestamp: v.timestamp || null,
+            user: v.user || null,
+            action: v.action || '',
+            comment: v.comment || '',
+          })
+        }
+      }
+      items.sort((a, b) => {
+        const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0
+        const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0
+        return ta - tb
+      })
+      return items
+    },
+  },
   methods: {
+    /** Formata ISO string para "dd/mm/aaaa hh:mm" (pt-BR), ou '—' se inválida. */
+    formatDateTime(iso) {
+      if (!iso) return '—'
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return '—'
+      const pad = n => String(n).padStart(2, '0')
+      return (
+        `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ` +
+        `${pad(d.getHours())}:${pad(d.getMinutes())}`
+      )
+    },
+
     async openScanner() {
       if (this.scanning) return
       this.scanning = true
@@ -337,10 +402,16 @@ export default {
 .qr-result-card {
   background: #fff;
   border-radius: 12px;
-  width: 100%;
-  max-width: 380px;
+  /* Ocupa 98% da largura/altura do display (resto fica como margem visual
+     do overlay escuro, que ajuda a perceber que o conteúdo é modal). */
+  width: 98vw;
+  height: 98vh;
+  max-width: 98vw;
+  max-height: 98vh;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .qr-result-header {
@@ -370,7 +441,11 @@ export default {
 
 .qr-result-body {
   padding: 18px 20px;
-  max-height: 60vh;
+  /* Card vira flex column; body cresce e fica scrollável quando o
+     histórico for longo. Sem max-height fixo: aproveita toda a altura
+     disponível menos header e footer. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -415,6 +490,70 @@ export default {
 .qr-diag .qr-value {
   font-family: monospace;
   font-size: 0.82rem;
+}
+
+/* === Histórico da carga (timeline simples) === */
+.qr-history {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 2px solid #f0f0f0;
+}
+
+.qr-history-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #495057;
+  margin-bottom: 10px;
+}
+
+.qr-history-title i {
+  color: #007bff;
+}
+
+.qr-history-empty {
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.qr-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qr-history-item {
+  position: relative;
+  padding: 10px 12px 10px 14px;
+  background: #f8f9fa;
+  border-left: 3px solid #007bff;
+  border-radius: 0 6px 6px 0;
+}
+
+.qr-history-when {
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: #6c757d;
+  margin-bottom: 2px;
+}
+
+.qr-history-action {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+.qr-history-comment {
+  font-size: 0.85rem;
+  color: #495057;
+  margin-top: 4px;
+  word-break: break-word;
 }
 
 .qr-result-footer {
