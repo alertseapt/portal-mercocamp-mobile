@@ -73,9 +73,20 @@
                   class="qr-history-item"
                 >
                   <div class="qr-history-when">{{ formatDateTime(entry.timestamp) }}</div>
-                  <div class="qr-history-action">{{ entry.action || '—' }}</div>
-                  <div v-if="entry.comment" class="qr-history-comment">
-                    {{ entry.comment }}
+                  <!-- Título do evento: usa `comment` (a frase que descreve o que
+                       aconteceu, ex. "Doca 30 atribuída - Carga enviada"). Cai
+                       pro `action` quando não houver comment. -->
+                  <div class="qr-history-event">
+                    {{ entry.comment || entry.action || '—' }}
+                  </div>
+                  <!-- Subtítulo: só mostra o `action` (ex. "Status alterado")
+                       quando houver `comment` também — senão o action já virou
+                       título e não deve repetir embaixo. -->
+                  <div
+                    v-if="entry.comment && entry.action"
+                    class="qr-history-meta"
+                  >
+                    {{ entry.action }}
                   </div>
                 </li>
               </ol>
@@ -162,7 +173,13 @@ export default {
         const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0
         return ta - tb
       })
-      return items
+      // Esconde o evento "Carga criada" — ele aparece em toda carga e não
+      // agrega informação no fluxo do leitor de QR (mais relevante são as
+      // alterações posteriores: doca atribuída, status, etc.).
+      return items.filter(it => {
+        const a = String(it.action || '').trim().toLowerCase()
+        return a !== 'carga criada'
+      })
     },
   },
   methods: {
@@ -463,13 +480,13 @@ export default {
 
 .qr-label {
   color: #6c757d;
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .qr-value {
   color: #212529;
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   text-align: right;
   word-break: break-word;
 }
@@ -477,7 +494,7 @@ export default {
 .qr-message {
   margin: 0;
   color: #212529;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   line-height: 1.5;
 }
 
@@ -503,7 +520,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #495057;
   margin-bottom: 10px;
@@ -514,7 +531,7 @@ export default {
 }
 
 .qr-history-empty {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: #6c757d;
   font-style: italic;
 }
@@ -538,20 +555,23 @@ export default {
 
 .qr-history-when {
   font-family: monospace;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #6c757d;
   margin-bottom: 2px;
 }
 
-.qr-history-action {
-  font-size: 0.95rem;
+/* Título do evento (texto principal de cada entrada do histórico). */
+.qr-history-event {
+  font-size: 1.05rem;
   font-weight: 600;
   color: #212529;
+  word-break: break-word;
 }
 
-.qr-history-comment {
-  font-size: 0.85rem;
-  color: #495057;
+/* Descrição complementar do evento (aparece embaixo do título). */
+.qr-history-meta {
+  font-size: 0.9rem;
+  color: #6c757d;
   margin-top: 4px;
   word-break: break-word;
 }
