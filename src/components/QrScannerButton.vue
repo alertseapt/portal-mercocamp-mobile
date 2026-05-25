@@ -109,6 +109,24 @@
         </div>
 
         <div class="qr-result-footer">
+          <!-- Botão de avanço de status no fluxo de QR. O label vem do
+               `nextTransition` (computado a partir do status atual da carga).
+               Quando a carga estiver em status terminal (ex.: REGISTRO SAÍDA,
+               CANCELADA, RECUSADO, AGUARDANDO sem doca), o botão some e só
+               sobra o OK. -->
+          <button
+            v-if="found && carga && nextTransition"
+            class="qr-action-btn"
+            type="button"
+            :disabled="advancing"
+            @click="advanceStatus"
+          >
+            <i
+              class="fas"
+              :class="advancing ? 'fa-spinner fa-spin' : nextTransition.icon"
+            ></i>
+            {{ nextTransition.action }}
+          </button>
           <button class="qr-ok-btn" type="button" @click="closeResult">
             OK
           </button>
@@ -136,6 +154,9 @@ export default {
       carga: null,
       scannedValue: '',
       errorDetail: '',
+      // True enquanto a chamada PATCH /loads/:id/advance-status está em voo.
+      // Desabilita o botão e troca o ícone por um spinner.
+      advancing: false,
     }
   },
   computed: {
@@ -180,6 +201,27 @@ export default {
         const a = String(it.action || '').trim().toLowerCase()
         return a !== 'carga criada'
       })
+    },
+
+    /**
+     * Mapeia o status atual da carga para a próxima transição do fluxo de
+     * leitura de QR. Cada entrada inclui o label do botão e o ícone. Quando
+     * a carga não está em nenhum dos status do fluxo (ex.: AGUARDANDO,
+     * CANCELADA, REGISTRO SAÍDA), devolve null e o botão some.
+     *
+     * Espelha exatamente o QR_FLOW_TRANSITIONS no back-end
+     * (routes/loads.js → PATCH /api/loads/:id/advance-status). Manter
+     * sincronizado: se um lado mudar, o outro tem que mudar junto.
+     */
+    nextTransition() {
+      const status = this.carga && this.carga.status
+      const map = {
+        ENVIADO:           { action: 'Confirmar entrada',    icon: 'fa-door-open' },
+        DOCANDO:           { action: 'Iniciar atendimento',  icon: 'fa-play' },
+        'EM ATENDIMENTO':  { action: 'Finalizar atendimento', icon: 'fa-flag-checkered' },
+        LIBERADO:          { action: 'Registrar saída',      icon: 'fa-sign-out-alt' },
+      }
+      return map[status] || null
     },
   },
   methods: {
@@ -347,6 +389,49 @@ export default {
       this.found = false
       this.scannedValue = ''
       this.errorDetail = ''
+      this.advancing = false
+    },
+
+    /**
+     * Avança o status da carga conforme o fluxo de QR (definido pelo
+     * back-end). Faz PATCH /api/loads/:id/advance-status, depois recarrega
+     * a carga via GET pra atualizar status, histórico e o label do botão.
+     * Mantém o modal aberto: o usuário pode ver a nova entrada no histórico
+     * e, se o fluxo ainda tiver próximo passo, executar de novo sem
+     * rescanear.
+     */
+    async advanceStatus() {
+      if (!this.carga || !this.carga.load_id || this.advancing) return
+      const loadId = this.carga.load_id
+      this.advancing = true
+      this.errorDetail = ''
+      try {
+        await apiService.patch(
+          `/loads/${encodeURIComponent(loadId)}/advance-status`
+        )
+        // Recarrega pra refletir novo status + nova entrada no histórico.
+        let resp = await apiService.get(`/loads/${encodeURIComponent(loadId)}`)
+        if (typeof resp === 'string') {
+          try { resp = JSON.parse(resp) } catch (_) { /* ignora */ }
+        }
+        const data = resp && (resp.data || resp)
+        if (data && data.load_id) {
+          this.carga = data
+        }
+      } catch (error) {
+        const msg = String(
+          error && (error.message || error.toString()) || 'erro desconhecido'
+        )
+        this.errorDetail = msg
+        // Não fecha o modal: o usuário vê a falha (Detalhe) e pode tentar
+        // de novo ou apertar OK pra sair.
+        this.found = false
+        this.message =
+          `Não foi possível avançar o status da carga "${loadId}". ` +
+          'Verifique a conexão e tente novamente.'
+      } finally {
+        this.advancing = false
+      }
     },
   },
 }
@@ -580,6 +665,8 @@ export default {
   padding: 14px 20px 18px;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .qr-ok-btn {
@@ -588,7 +675,7 @@ export default {
   border: none;
   border-radius: 8px;
   padding: 10px 28px;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
@@ -600,5 +687,36 @@ export default {
 
 .qr-ok-btn:active {
   transform: scale(0.97);
+}
+
+/* Botão de avanço de status no fluxo de QR. Estilo verde (ação positiva)
+   pra contrastar com o OK azul; quando desabilitado (advancing=true),
+   fica mais opaco e sem cursor de pointer. */
+.qr-action-btn {
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qr-action-btn:hover:not(:disabled) {
+  background: #1e7e34;
+}
+
+.qr-action-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.qr-action-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
 }
 </style>
