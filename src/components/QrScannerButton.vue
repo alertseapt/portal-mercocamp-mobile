@@ -87,6 +87,13 @@
                   >
                     {{ entry.action }}
                   </div>
+                  <!-- Nome do usuário que executou a ação. Entradas antigas
+                       não têm userName (escrito antes do back-end começar a
+                       gravar o campo) — nesse caso a linha some. -->
+                  <div v-if="entry.userName" class="qr-history-who">
+                    <i class="fas fa-user"></i>
+                    {{ entry.userName }}
+                  </div>
                 </li>
               </ol>
             </div>
@@ -313,6 +320,7 @@ export default {
           items.push({
             timestamp: v.timestamp || null,
             user: v.user || null,
+            userName: v.userName || null, // pode vir null em entradas legadas (sem userName)
             action: v.action || '',
             comment: v.comment || '',
           })
@@ -877,6 +885,21 @@ export default {
   color: #6c757d;
   margin-top: 4px;
   word-break: break-word;
+}
+
+/* Linha "Por: <nome do usuário>" no rodapé da entrada do histórico. */
+.qr-history-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #495057;
+  font-style: italic;
+}
+.qr-history-who i {
+  color: #007bff;
+  font-size: 0.8rem;
 }
 
 /* Footer do modal principal: agora empilhado em duas linhas.
