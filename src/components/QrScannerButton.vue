@@ -182,6 +182,19 @@
       </div>
     </div>
 
+    <!-- Overlay de animação de sucesso disparado pelo botão de ação natural.
+         Sobe por cima de tudo (z-index 2300), bloqueia interação e desaparece
+         junto com o auto-close do modal principal (~1.3s). -->
+    <div v-if="showSuccessAnimation" class="qr-success-overlay">
+      <div class="qr-success-card">
+        <div class="qr-success-circle">
+          <i class="fas fa-check"></i>
+        </div>
+        <div class="qr-success-label">{{ successLabel }}</div>
+        <div class="qr-success-sub">Confirmado</div>
+      </div>
+    </div>
+
     <!-- Sub-modal de confirmação para alterações fora do fluxo.
          Aparece por cima do sub-modal Ações; só fecha pelos botões. -->
     <div v-if="confirmingAction" class="qr-confirm-overlay">
@@ -268,6 +281,11 @@ export default {
       // objeto da transição (targetStatus/action/icon) e exibimos o
       // sub-modal de confirmação. null = sem confirmação pendente.
       confirmingAction: null,
+      // Overlay de animação de sucesso disparado ao concluir o botão de
+      // ação natural (advanceStatus). Bloqueia toda interação com o modal
+      // até o auto-close. successLabel é o texto exibido abaixo do check.
+      showSuccessAnimation: false,
+      successLabel: '',
     }
   },
   computed: {
@@ -508,6 +526,8 @@ export default {
       this.advancing = false
       this.showActionsMenu = false
       this.confirmingAction = null
+      this.showSuccessAnimation = false
+      this.successLabel = ''
     },
 
     /** Abre o sub-modal com a lista de ações fora do fluxo. */
@@ -591,35 +611,45 @@ export default {
     async advanceStatus() {
       if (!this.carga || !this.carga.load_id || this.advancing) return
       const loadId = this.carga.load_id
+      // Captura o label da ação ANTES da chamada — em caso de sucesso,
+      // exibimos esse texto na animação de confirmação (a transição já
+      // mudou e nextTransition pode apontar pro próximo passo).
+      const actionLabel =
+        (this.nextTransition && this.nextTransition.action) || 'Ação confirmada'
       this.advancing = true
       this.errorDetail = ''
       try {
         await apiService.patch(
           `/loads/${encodeURIComponent(loadId)}/advance-status`
         )
-        // Recarrega pra refletir novo status + nova entrada no histórico.
-        let resp = await apiService.get(`/loads/${encodeURIComponent(loadId)}`)
-        if (typeof resp === 'string') {
-          try { resp = JSON.parse(resp) } catch (_) { /* ignora */ }
-        }
-        const data = resp && (resp.data || resp)
-        if (data && data.load_id) {
-          this.carga = data
-        }
+        // Sucesso: dispara a animação de confirmação e agenda o
+        // auto-close. NÃO recarregamos a carga aqui — o modal será fechado;
+        // se o usuário precisar do próximo passo, escaneia o QR de novo.
+        // Mantém advancing=true durante a animação pra deixar o botão
+        // travado (defesa contra duplo-click até o overlay aparecer).
+        this.successLabel = actionLabel
+        this.showSuccessAnimation = true
+        // ~1300ms total: ~600ms da animação do check + ~700ms de hold antes
+        // do close. Tempo suficiente pro usuário registrar visualmente.
+        setTimeout(() => {
+          this.closeResult()
+        }, 1300)
       } catch (error) {
         const msg = String(
           error && (error.message || error.toString()) || 'erro desconhecido'
         )
         this.errorDetail = msg
         // Não fecha o modal: o usuário vê a falha (Detalhe) e pode tentar
-        // de novo ou apertar OK pra sair.
+        // de novo ou apertar Fechar pra sair.
         this.found = false
         this.message =
           `Não foi possível avançar o status da carga "${loadId}". ` +
           'Verifique a conexão e tente novamente.'
-      } finally {
         this.advancing = false
       }
+      // Sem finally: no caminho de sucesso, advancing fica true até o
+      // closeResult() resetar tudo (1300ms depois) — evita re-habilitar
+      // o botão durante a animação.
     },
   },
 }
@@ -1105,5 +1135,108 @@ export default {
 .qr-confirm-go-btn:disabled {
   opacity: 0.7;
   cursor: default;
+}
+
+/* === Animação de confirmação após avançar status pelo botão natural ===
+   Overlay full-screen com círculo verde + check. Fades suaves no overlay
+   e no card; o círculo entra com easing "back-out" pra dar uma sensação
+   de pop, e o check entra logo depois com um pequeno bump. */
+.qr-success-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2300; /* acima de todo o resto (confirm=2200, actions=2100, result=2000) */
+  padding: 20px;
+  animation: qr-overlay-fade 0.25s ease forwards;
+}
+
+.qr-success-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 32px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.qr-success-circle {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: #28a745;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* "Back-out" cubic-bezier gera um overshoot suave (115% → 100%). */
+  animation: qr-success-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.45);
+}
+
+.qr-success-circle::after {
+  /* Anel pulsante: começa colado no círculo, expande pra fora e fade out.
+     Inicia depois do pop pra reforçar visualmente o sucesso. */
+  content: '';
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: 4px solid #28a745;
+  animation: qr-success-ring 0.9s 0.25s ease-out forwards;
+  opacity: 0;
+}
+
+.qr-success-circle i {
+  color: #fff;
+  font-size: 3.4rem;
+  /* Check entra com pequeno atraso pra dar leitura sequencial:
+     primeiro o círculo, depois o ✔. */
+  animation: qr-check-pop 0.4s 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.qr-success-label {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #212529;
+  animation: qr-text-fade 0.4s 0.45s ease forwards;
+  opacity: 0;
+}
+
+.qr-success-sub {
+  font-size: 0.95rem;
+  color: #6c757d;
+  animation: qr-text-fade 0.4s 0.55s ease forwards;
+  opacity: 0;
+}
+
+@keyframes qr-overlay-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes qr-success-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes qr-check-pop {
+  0%   { transform: scale(0) rotate(-25deg); opacity: 0; }
+  60%  { transform: scale(1.15) rotate(0); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+@keyframes qr-success-ring {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes qr-text-fade {
+  to { opacity: 1; }
 }
 </style>
