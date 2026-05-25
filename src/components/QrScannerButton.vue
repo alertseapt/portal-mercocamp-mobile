@@ -11,12 +11,11 @@
       <i class="fas" :class="scanning ? 'fa-spinner fa-spin' : 'fa-camera'"></i>
     </button>
 
-    <!-- Resultado da leitura -->
-    <div
-      v-if="resultVisible"
-      class="qr-result-overlay"
-      @click.self="closeResult"
-    >
+    <!-- Resultado da leitura. O modal SÓ fecha por toque nos botões do card
+         (OK ou no botão de avançar status). Não há handler de clique no
+         overlay — evita fechar acidentalmente no chão da operação enquanto
+         o operador está com luvas/manuseando o tablet. -->
+    <div v-if="resultVisible" class="qr-result-overlay">
       <div class="qr-result-card">
         <div
           class="qr-result-header"
