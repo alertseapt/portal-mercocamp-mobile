@@ -108,14 +108,12 @@
         </div>
 
         <div class="qr-result-footer">
-          <!-- Botão de avanço de status no fluxo de QR. O label vem do
-               `nextTransition` (computado a partir do status atual da carga).
-               Quando a carga estiver em status terminal (ex.: REGISTRO SAÍDA,
-               CANCELADA, RECUSADO, AGUARDANDO sem doca), o botão some e só
-               sobra o OK. -->
+          <!-- Linha 1 (FULL WIDTH): ação natural do fluxo. Só aparece quando
+               a carga tem um próximo passo no fluxo de QR (carga em
+               ENVIADO/DOCANDO/EM ATENDIMENTO/LIBERADO). -->
           <button
             v-if="found && carga && nextTransition"
-            class="qr-action-btn"
+            class="qr-action-btn qr-action-btn--full"
             type="button"
             :disabled="advancing"
             @click="advanceStatus"
@@ -126,8 +124,99 @@
             ></i>
             {{ nextTransition.action }}
           </button>
-          <button class="qr-ok-btn" type="button" @click="closeResult">
-            OK
+          <!-- Linha 2 (50/50): Ações (out-of-order) + Fechar.
+               "Ações" só aparece quando há transições alternativas pra propor. -->
+          <div class="qr-footer-row">
+            <button
+              v-if="found && carga && outOfOrderActions.length > 0"
+              class="qr-secondary-btn"
+              type="button"
+              @click="openActionsMenu"
+            >
+              <i class="fas fa-ellipsis-h"></i>
+              Ações
+            </button>
+            <button class="qr-close-btn" type="button" @click="closeResult">
+              <i class="fas fa-times"></i>
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-modal "Ações": lista as transições FORA do fluxo natural,
+         empilhado por cima do modal principal. Fecha só pelos botões. -->
+    <div v-if="showActionsMenu" class="qr-actions-overlay">
+      <div class="qr-actions-card">
+        <div class="qr-actions-title">
+          <i class="fas fa-list-ul"></i>
+          Selecionar ação manual
+        </div>
+        <p class="qr-actions-hint">
+          Use estas opções somente para alterações fora da ordem prevista
+          do fluxo.
+        </p>
+        <ul class="qr-actions-list">
+          <li v-for="opt in outOfOrderActions" :key="opt.targetStatus">
+            <button
+              class="qr-actions-item"
+              type="button"
+              @click="askConfirm(opt)"
+            >
+              <i class="fas" :class="opt.icon"></i>
+              <span>{{ opt.action }}</span>
+            </button>
+          </li>
+        </ul>
+        <div class="qr-actions-footer">
+          <button
+            class="qr-close-btn"
+            type="button"
+            @click="closeActionsMenu"
+          >
+            <i class="fas fa-times"></i>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-modal de confirmação para alterações fora do fluxo.
+         Aparece por cima do sub-modal Ações; só fecha pelos botões. -->
+    <div v-if="confirmingAction" class="qr-confirm-overlay">
+      <div class="qr-confirm-card">
+        <div class="qr-confirm-icon">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="qr-confirm-title">Alteração fora do fluxo</div>
+        <p class="qr-confirm-msg">
+          A ação <strong>{{ confirmingAction.action }}</strong> mudará o
+          status da carga para
+          <strong>{{ confirmingAction.targetStatus }}</strong>, mesmo não
+          sendo a próxima etapa esperada do fluxo. Deseja confirmar?
+        </p>
+        <div class="qr-confirm-actions">
+          <button
+            class="qr-close-btn"
+            type="button"
+            :disabled="advancing"
+            @click="cancelConfirm"
+          >
+            <i class="fas fa-times"></i>
+            Cancelar
+          </button>
+          <button
+            class="qr-confirm-go-btn"
+            type="button"
+            :disabled="advancing"
+            @click="confirmOutOfOrderAction"
+          >
+            <i
+              class="fas"
+              :class="advancing ? 'fa-spinner fa-spin' : 'fa-check'"
+            ></i>
+            Confirmar
           </button>
         </div>
       </div>
@@ -141,6 +230,23 @@ import {
   BarcodeFormat,
 } from '@capacitor-mlkit/barcode-scanning'
 import apiService from '../services/api.js'
+
+/**
+ * Tabela única do fluxo de QR. Espelha QR_FLOW_TRANSITIONS no back-end
+ * (routes/loads.js → PATCH /api/loads/:id/advance-status). Cada item é
+ * uma transição POSSÍVEL — fromStatus determina se ela é o "próximo passo
+ * natural" (botão grande em cima), e tudo que não for o passo natural nem
+ * o status atual entra no menu "Ações" (alteração fora do fluxo).
+ *
+ * Manter sincronizado com o back-end: se um lado mudar, o outro tem que
+ * mudar junto.
+ */
+const QR_FLOW_ACTIONS = [
+  { fromStatus: 'ENVIADO',          targetStatus: 'DOCANDO',         action: 'Confirmar entrada',     icon: 'fa-door-open' },
+  { fromStatus: 'DOCANDO',          targetStatus: 'EM ATENDIMENTO',  action: 'Iniciar atendimento',   icon: 'fa-play' },
+  { fromStatus: 'EM ATENDIMENTO',   targetStatus: 'LIBERADO',        action: 'Finalizar atendimento', icon: 'fa-flag-checkered' },
+  { fromStatus: 'LIBERADO',         targetStatus: 'REGISTRO SAÍDA',  action: 'Registrar saída',       icon: 'fa-sign-out-alt' },
+]
 
 export default {
   name: 'QrScannerButton',
@@ -156,6 +262,12 @@ export default {
       // True enquanto a chamada PATCH /loads/:id/advance-status está em voo.
       // Desabilita o botão e troca o ícone por um spinner.
       advancing: false,
+      // True quando o sub-modal "Ações" (lista de alterações fora do fluxo) está visível.
+      showActionsMenu: false,
+      // Quando o usuário escolhe uma ação fora do fluxo, guardamos aqui o
+      // objeto da transição (targetStatus/action/icon) e exibimos o
+      // sub-modal de confirmação. null = sem confirmação pendente.
+      confirmingAction: null,
     }
   },
   computed: {
@@ -203,24 +315,29 @@ export default {
     },
 
     /**
-     * Mapeia o status atual da carga para a próxima transição do fluxo de
-     * leitura de QR. Cada entrada inclui o label do botão e o ícone. Quando
-     * a carga não está em nenhum dos status do fluxo (ex.: AGUARDANDO,
-     * CANCELADA, REGISTRO SAÍDA), devolve null e o botão some.
-     *
-     * Espelha exatamente o QR_FLOW_TRANSITIONS no back-end
-     * (routes/loads.js → PATCH /api/loads/:id/advance-status). Manter
-     * sincronizado: se um lado mudar, o outro tem que mudar junto.
+     * Próximo passo natural do fluxo, derivado do status atual da carga.
+     * Quando a carga não está em nenhum fromStatus do QR_FLOW_ACTIONS
+     * (ex.: AGUARDANDO, CANCELADA, REGISTRO SAÍDA), devolve null e o botão
+     * grande no topo do footer some.
      */
     nextTransition() {
       const status = this.carga && this.carga.status
-      const map = {
-        ENVIADO:           { action: 'Confirmar entrada',    icon: 'fa-door-open' },
-        DOCANDO:           { action: 'Iniciar atendimento',  icon: 'fa-play' },
-        'EM ATENDIMENTO':  { action: 'Finalizar atendimento', icon: 'fa-flag-checkered' },
-        LIBERADO:          { action: 'Registrar saída',      icon: 'fa-sign-out-alt' },
-      }
-      return map[status] || null
+      return QR_FLOW_ACTIONS.find(t => t.fromStatus === status) || null
+    },
+
+    /**
+     * Opções para o sub-modal "Ações": todas as transições do fluxo MENOS
+     * o passo natural (já tem botão dedicado) e MENOS uma transição cujo
+     * targetStatus seja o status atual (carga já está nele). Cada item
+     * dispara uma chamada manual ao endpoint (com target_status no body) —
+     * o back-end marca no histórico que foi alteração fora do fluxo.
+     */
+    outOfOrderActions() {
+      const status = this.carga && this.carga.status
+      const naturalTarget = this.nextTransition && this.nextTransition.targetStatus
+      return QR_FLOW_ACTIONS.filter(
+        t => t.targetStatus !== status && t.targetStatus !== naturalTarget
+      )
     },
   },
   methods: {
@@ -389,6 +506,78 @@ export default {
       this.scannedValue = ''
       this.errorDetail = ''
       this.advancing = false
+      this.showActionsMenu = false
+      this.confirmingAction = null
+    },
+
+    /** Abre o sub-modal com a lista de ações fora do fluxo. */
+    openActionsMenu() {
+      this.showActionsMenu = true
+    },
+
+    /** Fecha o sub-modal de ações sem confirmar nada. */
+    closeActionsMenu() {
+      this.showActionsMenu = false
+    },
+
+    /**
+     * Usuário escolheu uma ação no sub-modal: armazena a transição e abre
+     * o sub-modal de confirmação. Não chama API ainda.
+     */
+    askConfirm(transition) {
+      this.confirmingAction = transition
+    },
+
+    /** Cancela a confirmação sem executar a transição. */
+    cancelConfirm() {
+      this.confirmingAction = null
+    },
+
+    /**
+     * Executa a transição fora do fluxo confirmada — chama o endpoint com
+     * body.target_status para forçar o status escolhido, depois recarrega
+     * a carga e fecha os dois sub-modais (deixa o modal principal aberto
+     * mostrando o novo estado/histórico).
+     */
+    async confirmOutOfOrderAction() {
+      if (!this.carga || !this.carga.load_id || !this.confirmingAction || this.advancing) return
+      const loadId = this.carga.load_id
+      const target = this.confirmingAction.targetStatus
+      this.advancing = true
+      this.errorDetail = ''
+      try {
+        await apiService.patch(
+          `/loads/${encodeURIComponent(loadId)}/advance-status`,
+          { target_status: target }
+        )
+        let resp = await apiService.get(`/loads/${encodeURIComponent(loadId)}`)
+        if (typeof resp === 'string') {
+          try { resp = JSON.parse(resp) } catch (_) { /* ignora */ }
+        }
+        const data = resp && (resp.data || resp)
+        if (data && data.load_id) {
+          this.carga = data
+        }
+        // Fecha apenas os sub-modais; modal principal permanece com a info
+        // atualizada da carga.
+        this.confirmingAction = null
+        this.showActionsMenu = false
+      } catch (error) {
+        const msg = String(
+          error && (error.message || error.toString()) || 'erro desconhecido'
+        )
+        this.errorDetail = msg
+        // Em caso de falha, esconde os sub-modais e mostra a mensagem de
+        // erro no modal principal pra usuário ver e tentar de novo.
+        this.confirmingAction = null
+        this.showActionsMenu = false
+        this.found = false
+        this.message =
+          `Não foi possível alterar o status da carga "${loadId}". ` +
+          'Verifique a conexão e tente novamente.'
+      } finally {
+        this.advancing = false
+      }
     },
 
     /**
@@ -660,50 +849,46 @@ export default {
   word-break: break-word;
 }
 
+/* Footer do modal principal: agora empilhado em duas linhas.
+   Linha 1 = ação natural (full-width verde). Linha 2 = Ações + Fechar (50/50). */
 .qr-result-footer {
   padding: 14px 20px 18px;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
-.qr-ok-btn {
-  background: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 28px;
-  font-size: 1.05rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
+.qr-footer-row {
+  display: flex;
+  gap: 10px;
 }
 
-.qr-ok-btn:hover {
-  background: #0056b3;
+.qr-footer-row > button {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-.qr-ok-btn:active {
-  transform: scale(0.97);
-}
-
-/* Botão de avanço de status no fluxo de QR. Estilo verde (ação positiva)
-   pra contrastar com o OK azul; quando desabilitado (advancing=true),
-   fica mais opaco e sem cursor de pointer. */
+/* Botão verde de avanço de status. Modificador --full ocupa a largura toda
+   na linha 1 do footer; sem o modifier, mantém compatibilidade caso seja
+   usado em outro contexto. */
 .qr-action-btn {
   background: #28a745;
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 10px 22px;
+  padding: 12px 22px;
   font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+}
+
+.qr-action-btn--full {
+  width: 100%;
 }
 
 .qr-action-btn:hover:not(:disabled) {
@@ -715,6 +900,209 @@ export default {
 }
 
 .qr-action-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* Botão azul "Ações" (abre sub-modal de alterações fora do fluxo). */
+.qr-secondary-btn {
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.qr-secondary-btn:hover {
+  background: #0056b3;
+}
+.qr-secondary-btn:active {
+  transform: scale(0.97);
+}
+
+/* Botão cinza "Fechar" (também usado como Cancelar nos sub-modais). */
+.qr-close-btn {
+  background: #6c757d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.qr-close-btn:hover:not(:disabled) {
+  background: #545b62;
+}
+.qr-close-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.qr-close-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* === Sub-modal "Ações" === */
+.qr-actions-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100; /* acima do qr-result-overlay (2000) */
+  padding: 20px;
+}
+.qr-actions-card {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.qr-actions-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: #007bff;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.qr-actions-hint {
+  margin: 0;
+  padding: 12px 20px 4px;
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.qr-actions-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+.qr-actions-item {
+  width: 100%;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #007bff;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #212529;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.15s, transform 0.1s;
+}
+.qr-actions-item i {
+  color: #007bff;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+.qr-actions-item:hover {
+  background: #e9ecef;
+}
+.qr-actions-item:active {
+  transform: scale(0.98);
+}
+.qr-actions-footer {
+  padding: 14px 20px 18px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* === Sub-modal de confirmação === */
+.qr-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2200; /* acima do qr-actions-overlay (2100) */
+  padding: 20px;
+}
+.qr-confirm-card {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px 22px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+.qr-confirm-icon {
+  font-size: 2.5rem;
+  color: #f0ad4e;
+  margin-bottom: 10px;
+}
+.qr-confirm-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 8px;
+}
+.qr-confirm-msg {
+  margin: 0 0 18px;
+  color: #495057;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  text-align: left;
+}
+.qr-confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+.qr-confirm-actions > button {
+  flex: 1 1 0;
+}
+.qr-confirm-go-btn {
+  background: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.qr-confirm-go-btn:hover:not(:disabled) {
+  background: #bd2130;
+}
+.qr-confirm-go-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.qr-confirm-go-btn:disabled {
   opacity: 0.7;
   cursor: default;
 }
