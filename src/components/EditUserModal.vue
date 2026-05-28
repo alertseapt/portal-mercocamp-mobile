@@ -145,6 +145,47 @@
             </div>
           </div>
 
+          <!-- Assinatura digital do usuário -->
+          <div class="form-group signature-section">
+            <label>
+              <i class="fas fa-signature"></i>
+              Assinatura do usuário
+            </label>
+            <small class="field-note">
+              Assinatura digital ficará armazenada no Google Drive
+              vinculada ao ID deste usuário.
+            </small>
+
+            <div v-if="signatureLoading" class="signature-loading">
+              <i class="fas fa-spinner fa-spin"></i>
+              Carregando assinatura...
+            </div>
+
+            <div v-else class="signature-block">
+              <button
+                type="button"
+                class="signature-action-btn"
+                :disabled="loading || signatureUploading"
+                @click="openSignatureModal"
+              >
+                <i :class="signatureFileId ? 'fas fa-edit' : 'fas fa-pen-nib'"></i>
+                {{ signatureFileId ? 'Editar assinatura' : 'Criar assinatura' }}
+              </button>
+
+              <div v-if="signatureFileId && signatureBlobUrl" class="signature-preview">
+                <img
+                  :src="signatureBlobUrl"
+                  alt="Assinatura do usuário"
+                  class="signature-image"
+                />
+              </div>
+              <p v-if="signatureError" class="signature-error">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ signatureError }}
+              </p>
+            </div>
+          </div>
+
           <!-- Informações do usuário -->
           <div class="user-info">
             <div class="info-item">
@@ -159,6 +200,16 @@
           </div>
         </form>
       </div>
+
+      <!-- Sub-modal de captura de assinatura (z-index 1100, sobre este modal) -->
+      <SignatureDrawerModal
+        v-if="signatureModalOpen"
+        :title="signatureFileId ? 'Editar assinatura' : 'Criar assinatura'"
+        :uploading="signatureUploading"
+        :error-message="signatureSubmitError"
+        @cancel="closeSignatureModal"
+        @confirm="onSignatureConfirm"
+      />
 
       <div class="modal-footer">
         <div class="footer-left">
@@ -197,11 +248,13 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { BASE_URL } from '../config/api.js'
+import SignatureDrawerModal from './SignatureDrawerModal.vue'
 
 export default {
   name: 'EditUserModal',
+  components: { SignatureDrawerModal },
   props: {
     user: {
       type: Object,
@@ -229,6 +282,112 @@ export default {
     const loadingConfig = ref(false)
     const storageChanged = ref(false)
     const storages = ref([])
+
+    // ─── Assinatura digital ────────────────────────────────────────────────
+    const signatureLoading = ref(false)         // fetch status + file ao abrir/trocar user
+    const signatureUploading = ref(false)       // POST em andamento (bloqueia o sub-modal)
+    const signatureModalOpen = ref(false)
+    const signatureFileId = ref(null)
+    const signatureBlobUrl = ref('')            // object URL pra <img>
+    const signatureError = ref('')              // erro persistente (carregamento/upload final)
+    const signatureSubmitError = ref('')        // erro exibido dentro do sub-modal
+
+    function revokeSignatureBlobUrl() {
+      if (signatureBlobUrl.value) {
+        try { URL.revokeObjectURL(signatureBlobUrl.value) } catch (_) {}
+        signatureBlobUrl.value = ''
+      }
+    }
+
+    async function loadSignature() {
+      revokeSignatureBlobUrl()
+      signatureFileId.value = null
+      signatureError.value = ''
+      if (!props.user?.id) return
+      signatureLoading.value = true
+      try {
+        const token = localStorage.getItem('token')
+        const statusRes = await fetch(
+          `${BASE_URL}/users/${props.user.id}/signature-status`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (!statusRes.ok) {
+          signatureError.value = 'Falha ao consultar a assinatura'
+          return
+        }
+        const status = await statusRes.json()
+        if (!status.has_signature || !status.signature_file_id) return
+
+        signatureFileId.value = status.signature_file_id
+
+        // Carrega o PNG via fetch+blob — não dá pra usar <img src=...> direto
+        // porque o endpoint exige Authorization header.
+        const fileRes = await fetch(
+          `${BASE_URL}/users/${props.user.id}/signature/file`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (!fileRes.ok) {
+          signatureError.value = 'Assinatura cadastrada, mas não foi possível baixar a imagem'
+          return
+        }
+        const blob = await fileRes.blob()
+        signatureBlobUrl.value = URL.createObjectURL(blob)
+      } catch (e) {
+        signatureError.value = e?.message || 'Erro ao carregar assinatura'
+      } finally {
+        signatureLoading.value = false
+      }
+    }
+
+    function openSignatureModal() {
+      signatureSubmitError.value = ''
+      signatureModalOpen.value = true
+    }
+    function closeSignatureModal() {
+      if (signatureUploading.value) return
+      signatureModalOpen.value = false
+      signatureSubmitError.value = ''
+    }
+    async function onSignatureConfirm(blob) {
+      signatureSubmitError.value = ''
+      signatureUploading.value = true
+      try {
+        const token = localStorage.getItem('token')
+        const fd = new FormData()
+        fd.append('file', blob, `user_${props.user.id}.png`)
+        const res = await fetch(
+          `${BASE_URL}/users/${props.user.id}/signature`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd,
+          }
+        )
+        if (!res.ok) {
+          let msg = `Erro ${res.status}`
+          try {
+            const data = await res.json()
+            msg = data.details || data.error || msg
+          } catch (_) {}
+          signatureSubmitError.value = msg
+          return
+        }
+        // Sucesso — fecha sub-modal e recarrega
+        signatureModalOpen.value = false
+        await loadSignature()
+        emit(
+          'notification',
+          signatureFileId.value
+            ? 'Assinatura registrada com sucesso'
+            : 'Assinatura registrada',
+          'success'
+        )
+      } catch (e) {
+        signatureSubmitError.value = e?.message || 'Erro ao enviar assinatura'
+      } finally {
+        signatureUploading.value = false
+      }
+    }
 
     // CDs disponíveis para adicionar (apenas com corpem, excluir os já na lista)
     const storageOptions = computed(() => {
@@ -418,10 +577,16 @@ export default {
           selectedCDToAdd.value = ''
           loadUserConfig()
           loadStorages()
+          loadSignature()
         }
       },
       { immediate: true }
     )
+
+    // Revoga o objectURL do blob da assinatura ao desmontar pra não vazar memória.
+    onBeforeUnmount(() => {
+      revokeSignatureBlobUrl()
+    })
 
     const closeModal = () => {
       emit('close')
@@ -503,6 +668,17 @@ export default {
       getLevelClass,
       addCDFromSelect,
       removeCD,
+      // assinatura
+      signatureLoading,
+      signatureUploading,
+      signatureModalOpen,
+      signatureFileId,
+      signatureBlobUrl,
+      signatureError,
+      signatureSubmitError,
+      openSignatureModal,
+      closeSignatureModal,
+      onSignatureConfirm,
     }
   },
 }
@@ -978,5 +1154,75 @@ export default {
   .save-btn {
     flex: 1;
   }
+}
+
+/* ─── Seção de assinatura digital ─── */
+.signature-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.signature-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+.signature-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.signature-action-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #1e3a8a;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.signature-action-btn:hover:not(:disabled) { background: #1d3580; }
+.signature-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.signature-preview {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.signature-image {
+  /* Limite responsivo — assinatura cabe no modal mesmo em telas pequenas. */
+  max-width: 100%;
+  max-height: 180px;
+  height: auto;
+  object-fit: contain;
+  background: #ffffff;
+  border-radius: 6px;
+}
+.signature-error {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 8px 10px;
 }
 </style>
