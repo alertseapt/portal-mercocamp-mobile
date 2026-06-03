@@ -270,6 +270,9 @@ const QR_FLOW_ACTIONS = [
 
 export default {
   name: 'QrScannerButton',
+  // 'recebimento' é emitido com o ID da carga quando o QR traz o prefixo de
+  // processo CONF<id> (confirmação de recebimento das notas da carga).
+  emits: ['recebimento'],
   data() {
     return {
       scanning: false,
@@ -419,6 +422,14 @@ export default {
           ''
         ).trim()
         this.scannedValue = conteudo
+        // QR com prefixo de processo: "CONF<id>" → confirmação de recebimento das
+        // notas da carga (delega ao App.vue, que abre o modal dedicado). Sem
+        // prefixo (apenas o id) mantém o fluxo antigo de status da carga.
+        const conf = conteudo.match(/^CONF\s*(\d+)$/i)
+        if (conf) {
+          this.$emit('recebimento', conf[1])
+          return
+        }
         await this.buscarCarga(conteudo)
       } catch (error) {
         // Cancelamento manual em alguns dispositivos chega como erro

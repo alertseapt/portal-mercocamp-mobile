@@ -23,6 +23,14 @@
     <!-- Leitor de QR code da carga (canto superior direito) -->
     <QrScannerButton
       v-if="isMobile && !loading && !bulkActionLoading"
+      @recebimento="openRecebimentoModal"
+    />
+
+    <!-- Modal de confirmação de recebimento das notas da carga (QR "CONF<id>") -->
+    <ConfirmacaoRecebimentoModal
+      v-if="showRecebimentoModal"
+      :load-id="recebimentoLoadId"
+      @close="closeRecebimentoModal"
     />
 
     <!-- Main App -->
@@ -2092,6 +2100,7 @@ import FaturasLista from './views/FaturasLista.vue'
 import FinanceiroSolicitacoes from './views/FinanceiroSolicitacoes.vue'
 import SystemDialog from './components/SystemDialog.vue'
 import QrScannerButton from './components/QrScannerButton.vue'
+import ConfirmacaoRecebimentoModal from './components/ConfirmacaoRecebimentoModal.vue'
 import { checkPermission, checkUserLevel } from './utils/permissions.js'
 import { BASE_URL } from './config/api.js'
 import apiService from './services/api.js'
@@ -2442,6 +2451,7 @@ export default {
     FinanceiroSolicitacoes,
     SystemDialog,
     QrScannerButton,
+    ConfirmacaoRecebimentoModal,
   },
 
   data() {
@@ -2460,6 +2470,9 @@ export default {
       // Controle de responsividade mobile
       isMobile: false,
       windowWidth: 0,
+      // Modal de confirmação de recebimento (aberto via QR "CONF<id>")
+      showRecebimentoModal: false,
+      recebimentoLoadId: null,
       isSidebarOpen: false,
       isSidebarCollapsed: false,
       isNative: false, // app rodando em Capacitor (definido em setupResizeListener)
@@ -3429,6 +3442,15 @@ export default {
   },
 
   methods: {
+    /** Abre o modal de confirmação de recebimento para a carga lida no QR. */
+    openRecebimentoModal(loadId) {
+      this.recebimentoLoadId = loadId
+      this.showRecebimentoModal = true
+    },
+    closeRecebimentoModal() {
+      this.showRecebimentoModal = false
+      this.recebimentoLoadId = null
+    },
     isBiDiretoriaPortalOnlyUser,
     isBiArmazensPortalOnlyUser,
     canAccessBiArmazensAnalise,
