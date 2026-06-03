@@ -60,9 +60,9 @@
             <span class="rcb-info-label">Volumes</span>
             <span class="rcb-info-value">{{ currentSchedule.case_count ?? 0 }}</span>
           </div>
-          <div v-if="hasOc(currentSchedule)" class="rcb-info-row">
+          <div class="rcb-info-row">
             <span class="rcb-info-label">OC</span>
-            <span class="rcb-info-value">{{ currentSchedule.oc }}</span>
+            <span class="rcb-info-value">{{ ocDisplay(currentSchedule) }}</span>
           </div>
           <div v-if="currentSchedule.exceptions" class="rcb-info-row rcb-info-row--exceptions">
             <span class="rcb-info-label">Ressalvas</span>
@@ -164,21 +164,58 @@
         <template v-else>
           <div class="rcb-sub-body">
             <p class="rcb-photo-hint">
-              Tire uma ou mais fotos para complementar a ressalva, ou pule esta etapa.
+              Tire uma ou mais fotos para complementar a ressalva, ou pule esta
+              etapa. Toque em uma imagem para visualizar ou apagar.
             </p>
-            <div v-if="photos.length > 0" class="rcb-photo-grid">
-              <div v-for="(p, i) in photos" :key="i" class="rcb-photo-thumb">
-                <img :src="p.dataUrl" :alt="p.name" />
-                <button
-                  type="button"
-                  class="rcb-photo-remove"
-                  :disabled="uploadingPhotos"
-                  @click="removePhoto(i)"
-                >
-                  <i class="fas fa-times"></i>
-                </button>
-              </div>
+
+            <div v-if="loadingExisting" class="rcb-photo-loading">
+              <i class="fas fa-spinner fa-spin"></i> Carregando imagens...
             </div>
+
+            <div
+              v-if="existingPhotos.length > 0 || photos.length > 0"
+              class="rcb-photo-grid"
+            >
+              <!-- Imagens já enviadas (Drive) -->
+              <button
+                v-for="p in existingPhotos"
+                :key="'ex-' + p.id"
+                type="button"
+                class="rcb-photo-thumb"
+                @click="
+                  openViewer({
+                    type: 'existing',
+                    id: p.id,
+                    dataUrl: p.dataUrl,
+                    name: p.name,
+                  })
+                "
+              >
+                <img :src="p.dataUrl" :alt="p.name" />
+                <span class="rcb-photo-badge"><i class="fas fa-cloud"></i></span>
+              </button>
+              <!-- Fotos capturadas nesta sessão (ainda não enviadas) -->
+              <button
+                v-for="(p, i) in photos"
+                :key="'new-' + i"
+                type="button"
+                class="rcb-photo-thumb"
+                @click="
+                  openViewer({
+                    type: 'captured',
+                    idx: i,
+                    dataUrl: p.dataUrl,
+                    name: p.name,
+                  })
+                "
+              >
+                <img :src="p.dataUrl" :alt="p.name" />
+                <span class="rcb-photo-badge rcb-photo-badge--new">
+                  <i class="fas fa-clock"></i>
+                </span>
+              </button>
+            </div>
+
             <button
               type="button"
               class="rcb-photo-add"
@@ -209,6 +246,32 @@
             </button>
           </div>
         </template>
+      </div>
+    </div>
+
+    <!-- Visualizador de imagem em tela cheia (com opção de apagar) -->
+    <div v-if="viewer" class="rcb-viewer-overlay">
+      <img :src="viewer.dataUrl" :alt="viewer.name" class="rcb-viewer-img" />
+      <div class="rcb-viewer-actions">
+        <button
+          type="button"
+          class="rcb-btn rcb-btn--cancel"
+          :disabled="deletingPhoto"
+          @click="closeViewer"
+        >
+          <i class="fas fa-arrow-left"></i>
+          Voltar
+        </button>
+        <button
+          type="button"
+          class="rcb-btn rcb-btn--refuse"
+          :disabled="deletingPhoto"
+          @click="deleteViewed"
+        >
+          <i v-if="deletingPhoto" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-trash"></i>
+          Apagar
+        </button>
       </div>
     </div>
 
@@ -253,8 +316,12 @@ export default {
       savingRessalva: false,
 
       // Fotos
-      photos: [], // { name, dataUrl }
+      photos: [], // capturadas nesta sessão: { name, dataUrl }
       uploadingPhotos: false,
+      existingPhotos: [], // já enviadas (Drive): { id, name, dataUrl }
+      loadingExisting: false,
+      viewer: null, // imagem em visualização: { type:'existing'|'captured', id?, idx?, dataUrl, name }
+      deletingPhoto: false,
 
       // Animação entre notas
       showSuccess: false,
@@ -281,8 +348,10 @@ export default {
     this.fetchSchedules()
   },
   methods: {
-    hasOc(s) {
-      return s && s.oc != null && String(s.oc).trim() !== '' && String(s.oc).trim() !== '-'
+    /** Valor da OC para exibição; "—" quando vazia/inexistente. */
+    ocDisplay(s) {
+      const oc = s && s.oc != null ? String(s.oc).trim() : ''
+      return oc && oc !== '-' ? oc : '—'
     },
 
     async fetchSchedules() {
@@ -365,6 +434,8 @@ export default {
       this.showRessalva = false
       this.selectedSiglas = []
       this.photos = []
+      this.existingPhotos = []
+      this.viewer = null
       this.ressalvaStep = 'select'
     },
 
@@ -384,10 +455,66 @@ export default {
         schedule.exceptions =
           (data && data.exceptions) || this.selectedSiglas.join(',')
         this.ressalvaStep = 'foto'
+        this.fetchExistingImages()
       } catch (err) {
         alert(err?.message || 'Erro ao salvar ressalvas. Tente novamente.')
       } finally {
         this.savingRessalva = false
+      }
+    },
+
+    /** Carrega as imagens já enviadas do agendamento (Drive) para miniaturas. */
+    async fetchExistingImages() {
+      const schedule = this.currentSchedule
+      if (!schedule) return
+      this.loadingExisting = true
+      this.existingPhotos = []
+      try {
+        const resp = await apiService.get(
+          `/schedules/${encodeURIComponent(schedule.id)}/images`
+        )
+        const data = typeof resp === 'string' ? JSON.parse(resp) : resp
+        this.existingPhotos = ((data && data.images) || []).filter(
+          im => im && im.dataUrl
+        )
+      } catch (_) {
+        this.existingPhotos = []
+      } finally {
+        this.loadingExisting = false
+      }
+    },
+
+    openViewer(item) {
+      this.viewer = item
+    },
+
+    closeViewer() {
+      if (this.deletingPhoto) return
+      this.viewer = null
+    },
+
+    /** Apaga a imagem em visualização (Drive, se já enviada; ou da lista local). */
+    async deleteViewed() {
+      if (!this.viewer || this.deletingPhoto) return
+      if (this.viewer.type === 'captured') {
+        this.photos.splice(this.viewer.idx, 1)
+        this.viewer = null
+        return
+      }
+      const schedule = this.currentSchedule
+      this.deletingPhoto = true
+      try {
+        await apiService.delete(
+          `/schedules/${encodeURIComponent(schedule.id)}/images/${encodeURIComponent(this.viewer.id)}`
+        )
+        this.existingPhotos = this.existingPhotos.filter(
+          p => p.id !== this.viewer.id
+        )
+        this.viewer = null
+      } catch (err) {
+        alert(err?.message || 'Erro ao apagar imagem. Tente novamente.')
+      } finally {
+        this.deletingPhoto = false
       }
     },
 
@@ -433,6 +560,8 @@ export default {
         this.uploadingPhotos = false
         this.selectedSiglas = []
         this.photos = []
+        this.existingPhotos = []
+        this.viewer = null
         this.ressalvaStep = 'select'
         this.runSuccessThenAdvance('Ressalva registrada')
       } catch (err) {
@@ -758,6 +887,10 @@ export default {
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #e2e8f0;
+  padding: 0;
+  background: #f1f5f9;
+  cursor: pointer;
+  display: block;
 }
 .rcb-photo-thumb img {
   width: 100%;
@@ -796,6 +929,62 @@ export default {
 }
 .rcb-hidden-input {
   display: none;
+}
+.rcb-photo-loading {
+  color: #475569;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+.rcb-photo-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(22, 163, 74, 0.9);
+  color: #fff;
+  font-size: 0.6rem;
+}
+.rcb-photo-badge--new {
+  background: rgba(202, 138, 4, 0.9);
+}
+
+/* Visualizador de imagem em tela cheia */
+.rcb-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3300;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+}
+.rcb-viewer-img {
+  max-width: 100%;
+  max-height: calc(100% - 80px);
+  object-fit: contain;
+  border-radius: 8px;
+}
+.rcb-viewer-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  width: 100%;
+  max-width: 480px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.rcb-viewer-actions .rcb-btn {
+  flex: 1;
+  border-radius: 10px;
+  font-size: 1.05rem;
+  padding: 14px 12px;
 }
 
 /* Animação de sucesso */
