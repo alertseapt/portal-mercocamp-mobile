@@ -71,6 +71,36 @@
         </div>
       </div>
 
+      <!-- Ações: Ressalva | Imagens (com contagem) -->
+      <div
+        v-if="!loading && !error && currentSchedule"
+        class="rcb-actions"
+      >
+        <button
+          type="button"
+          class="rcb-action-btn rcb-action-btn--ressalva"
+          :disabled="busy"
+          @click="openRessalva"
+        >
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>Ressalva</span>
+          <span class="rcb-action-count">{{ ressalvaCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="rcb-action-btn rcb-action-btn--imagens"
+          :disabled="busy"
+          @click="openImagens"
+        >
+          <i class="fas fa-images"></i>
+          <span>Imagens</span>
+          <span class="rcb-action-count">
+            <i v-if="imageCount === null" class="fas fa-spinner fa-spin"></i>
+            <template v-else>{{ imageCount }}</template>
+          </span>
+        </button>
+      </div>
+
       <!-- Rodapé: Recusado | Recebido (50/50) -->
       <div
         v-if="!loading && !error && currentSchedule"
@@ -82,7 +112,8 @@
           :disabled="busy"
           @click="onRefused"
         >
-          <i class="fas fa-times-circle"></i>
+          <i v-if="savingDecision === 'Recusado'" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-times-circle"></i>
           Recusado
         </button>
         <button
@@ -91,167 +122,159 @@
           :disabled="busy"
           @click="onReceived"
         >
-          <i class="fas fa-check-circle"></i>
+          <i v-if="savingDecision === 'Recebido'" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-check-circle"></i>
           Recebido
         </button>
       </div>
     </div>
 
-    <!-- Sub-modal: Ressalva (seleção + foto) -->
+    <!-- Sub-modal: Ressalvas (seleção/edição) -->
     <div v-if="showRessalva" class="rcb-sub-overlay">
       <div class="rcb-sub-card">
         <div class="rcb-sub-header">
-          <h3>Ressalva</h3>
+          <h3>Ressalvas</h3>
         </div>
 
-        <!-- Etapa 1: seleção de ressalvas -->
-        <template v-if="ressalvaStep === 'select'">
-          <div class="rcb-sub-body">
-            <div v-if="ressalvasLoading" class="rcb-state">
-              <i class="fas fa-spinner fa-spin"></i>
-              <span>Carregando ressalvas...</span>
-            </div>
-            <div v-else-if="ressalvasError" class="rcb-state rcb-state--error">
-              <i class="fas fa-exclamation-triangle"></i>
-              <span>{{ ressalvasError }}</span>
-              <button type="button" class="rcb-retry" @click="fetchRessalvas">
-                Tentar novamente
-              </button>
-            </div>
-            <div v-else-if="ressalvas.length === 0" class="rcb-state">
-              <i class="fas fa-inbox"></i>
-              <span>Nenhuma ressalva cadastrada.</span>
-            </div>
-            <ul v-else class="rcb-ressalva-list">
-              <li v-for="r in ressalvas" :key="r.id">
-                <button
-                  type="button"
-                  class="rcb-ressalva-item"
-                  :class="{ 'is-selected': isSelected(r.sigla) }"
-                  @click="toggleSigla(r.sigla)"
-                >
-                  <span class="rcb-ressalva-check">
-                    <i class="fas" :class="isSelected(r.sigla) ? 'fa-check-square' : 'fa-square'"></i>
-                  </span>
-                  <span class="rcb-ressalva-sigla">{{ r.sigla }}</span>
-                  <span class="rcb-ressalva-desc">{{ r.description }}</span>
-                </button>
-              </li>
-            </ul>
+        <div class="rcb-sub-body">
+          <div v-if="ressalvasLoading" class="rcb-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Carregando ressalvas...</span>
           </div>
-          <div class="rcb-sub-footer">
-            <button
-              type="button"
-              class="rcb-btn rcb-btn--cancel"
-              :disabled="savingRessalva"
-              @click="cancelRessalva"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              class="rcb-btn rcb-btn--confirm"
-              :disabled="selectedSiglas.length === 0 || savingRessalva"
-              @click="confirmRessalva"
-            >
-              <i v-if="savingRessalva" class="fas fa-spinner fa-spin"></i>
-              Confirmar
+          <div v-else-if="ressalvasError" class="rcb-state rcb-state--error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>{{ ressalvasError }}</span>
+            <button type="button" class="rcb-retry" @click="fetchRessalvas">
+              Tentar novamente
             </button>
           </div>
-        </template>
-
-        <!-- Etapa 2: fotos (opcional) -->
-        <template v-else>
-          <div class="rcb-sub-body">
-            <p class="rcb-photo-hint">
-              Tire uma ou mais fotos para complementar a ressalva, ou pule esta
-              etapa. Toque em uma imagem para visualizar ou apagar.
-            </p>
-
-            <div v-if="loadingExisting" class="rcb-photo-loading">
-              <i class="fas fa-spinner fa-spin"></i> Carregando imagens...
-            </div>
-
-            <div
-              v-if="existingPhotos.length > 0 || photos.length > 0"
-              class="rcb-photo-grid"
-            >
-              <!-- Imagens já enviadas (Drive) -->
+          <div v-else-if="ressalvas.length === 0" class="rcb-state">
+            <i class="fas fa-inbox"></i>
+            <span>Nenhuma ressalva cadastrada.</span>
+          </div>
+          <ul v-else class="rcb-ressalva-list">
+            <li v-for="r in ressalvas" :key="r.id">
               <button
-                v-for="p in existingPhotos"
-                :key="'ex-' + p.id"
                 type="button"
-                class="rcb-photo-thumb"
-                @click="
-                  openViewer({
-                    type: 'existing',
-                    id: p.id,
-                    dataUrl: p.dataUrl,
-                    name: p.name,
-                  })
-                "
+                class="rcb-ressalva-item"
+                :class="{ 'is-selected': isSelected(r.sigla) }"
+                @click="toggleSigla(r.sigla)"
               >
-                <img :src="p.dataUrl" :alt="p.name" />
-                <span class="rcb-photo-badge"><i class="fas fa-cloud"></i></span>
-              </button>
-              <!-- Fotos capturadas nesta sessão (ainda não enviadas) -->
-              <button
-                v-for="(p, i) in photos"
-                :key="'new-' + i"
-                type="button"
-                class="rcb-photo-thumb"
-                @click="
-                  openViewer({
-                    type: 'captured',
-                    idx: i,
-                    dataUrl: p.dataUrl,
-                    name: p.name,
-                  })
-                "
-              >
-                <img :src="p.dataUrl" :alt="p.name" />
-                <span class="rcb-photo-badge rcb-photo-badge--new">
-                  <i class="fas fa-clock"></i>
+                <span class="rcb-ressalva-check">
+                  <i class="fas" :class="isSelected(r.sigla) ? 'fa-check-square' : 'fa-square'"></i>
                 </span>
+                <span class="rcb-ressalva-sigla">{{ r.sigla }}</span>
+                <span class="rcb-ressalva-desc">{{ r.description }}</span>
               </button>
-            </div>
+            </li>
+          </ul>
+        </div>
+        <div class="rcb-sub-footer">
+          <button
+            type="button"
+            class="rcb-btn rcb-btn--cancel"
+            :disabled="savingRessalva"
+            @click="cancelRessalva"
+          >
+            <i class="fas fa-arrow-left"></i>
+            Voltar
+          </button>
+          <button
+            type="button"
+            class="rcb-btn rcb-btn--confirm"
+            :disabled="savingRessalva"
+            @click="confirmRessalva"
+          >
+            <i v-if="savingRessalva" class="fas fa-spinner fa-spin"></i>
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
 
-            <button
-              type="button"
-              class="rcb-photo-add"
-              :disabled="uploadingPhotos"
-              @click="triggerPhotoCapture"
-            >
-              <i class="fas fa-camera"></i>
-              Tirar foto
-            </button>
-            <input
-              ref="photoInput"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              class="rcb-hidden-input"
-              @change="onPhotoCaptured"
-            />
+    <!-- Sub-modal: Imagens -->
+    <div v-if="showImagens" class="rcb-sub-overlay">
+      <div class="rcb-sub-card">
+        <div class="rcb-sub-header">
+          <h3>Imagens</h3>
+        </div>
+
+        <div class="rcb-sub-body">
+          <p class="rcb-photo-hint">
+            Toque em "Foto" para capturar uma nova imagem. Toque em uma imagem
+            para visualizar ou apagar.
+          </p>
+
+          <div v-if="loadingExisting" class="rcb-photo-loading">
+            <i class="fas fa-spinner fa-spin"></i> Carregando imagens...
           </div>
-          <div class="rcb-sub-footer rcb-sub-footer--single">
+
+          <div v-else-if="existingPhotos.length === 0" class="rcb-photo-empty">
+            <i class="fas fa-image"></i>
+            <span>Nenhuma imagem nesta NF.</span>
+          </div>
+
+          <div v-else class="rcb-photo-grid">
             <button
+              v-for="p in existingPhotos"
+              :key="'ex-' + p.id"
               type="button"
-              class="rcb-btn rcb-btn--confirm"
-              :disabled="uploadingPhotos"
-              @click="finishPhotos"
+              class="rcb-photo-thumb"
+              @click="
+                openViewer({
+                  id: p.id,
+                  dataUrl: p.dataUrl,
+                  name: p.name,
+                  uploadedBy: p.uploadedBy,
+                  uploadedAt: p.uploadedAt,
+                })
+              "
             >
-              <i v-if="uploadingPhotos" class="fas fa-spinner fa-spin"></i>
-              {{ photos.length > 0 ? `Enviar ${photos.length} foto(s)` : 'Pular etapa' }}
+              <img :src="p.dataUrl" :alt="p.name" />
+              <span class="rcb-photo-badge"><i class="fas fa-cloud"></i></span>
             </button>
           </div>
-        </template>
+
+          <input
+            ref="photoInput"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="rcb-hidden-input"
+            @change="onPhotoCaptured"
+          />
+        </div>
+        <div class="rcb-sub-footer">
+          <button
+            type="button"
+            class="rcb-btn rcb-btn--cancel"
+            :disabled="uploadingPhotos"
+            @click="closeImagens"
+          >
+            <i class="fas fa-arrow-left"></i>
+            Voltar
+          </button>
+          <button
+            type="button"
+            class="rcb-btn rcb-btn--confirm"
+            :disabled="uploadingPhotos"
+            @click="triggerPhotoCapture"
+          >
+            <i v-if="uploadingPhotos" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-camera"></i>
+            Foto
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- Visualizador de imagem em tela cheia (com opção de apagar) -->
     <div v-if="viewer" class="rcb-viewer-overlay">
       <img :src="viewer.dataUrl" :alt="viewer.name" class="rcb-viewer-img" />
+      <div v-if="viewer.uploadedBy || viewer.uploadedAt" class="rcb-viewer-meta">
+        <span v-if="viewer.uploadedBy"><i class="fas fa-user"></i> {{ viewer.uploadedBy }}</span>
+        <span v-if="viewer.uploadedAt"><i class="fas fa-clock"></i> {{ formatUploadedAt(viewer.uploadedAt) }}</span>
+      </div>
       <div class="rcb-viewer-actions">
         <button
           type="button"
@@ -272,16 +295,6 @@
           <i v-else class="fas fa-trash"></i>
           Apagar
         </button>
-      </div>
-    </div>
-
-    <!-- Animação de carregamento/sucesso entre notas -->
-    <div v-if="showSuccess" class="rcb-success-overlay">
-      <div class="rcb-success-card">
-        <div class="rcb-success-circle">
-          <i class="fas" :class="successDone ? 'fa-check' : 'fa-spinner fa-spin'"></i>
-        </div>
-        <div class="rcb-success-label">{{ successLabel }}</div>
       </div>
     </div>
   </div>
@@ -306,27 +319,24 @@ export default {
       schedules: [],
       currentIndex: 0,
 
-      // Sub-modal de ressalva
+      // Sub-modal de ressalvas
       showRessalva: false,
-      ressalvaStep: 'select', // 'select' | 'foto'
       ressalvas: [],
       ressalvasLoading: false,
       ressalvasError: null,
       selectedSiglas: [],
       savingRessalva: false,
 
-      // Fotos
-      photos: [], // capturadas nesta sessão: { name, dataUrl }
+      // Sub-modal de imagens
+      showImagens: false,
       uploadingPhotos: false,
-      existingPhotos: [], // já enviadas (Drive): { id, name, dataUrl }
+      existingPhotos: [], // já enviadas (Drive): { id, name, dataUrl, uploadedBy, uploadedAt }
       loadingExisting: false,
-      viewer: null, // imagem em visualização: { type:'existing'|'captured', id?, idx?, dataUrl, name }
+      viewer: null, // imagem em visualização: { id, dataUrl, name, uploadedBy, uploadedAt }
       deletingPhoto: false,
 
-      // Animação entre notas
-      showSuccess: false,
-      successDone: false,
-      successLabel: '',
+      // Decisão da conferência em gravação: 'Recebido' | 'Recusado' | null
+      savingDecision: null,
     }
   },
   computed: {
@@ -339,9 +349,35 @@ export default {
     canGoBack() {
       return this.currentIndex > 0
     },
-    /** Bloqueia ações do modal principal enquanto há sub-modal/upload/animação. */
+    /** Quantidade de ressalvas atribuídas à NF atual (siglas separadas por vírgula). */
+    ressalvaCount() {
+      const ex = this.currentSchedule?.exceptions
+      if (!ex) return 0
+      return String(ex)
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean).length
+    },
+    /** Quantidade de imagens da NF atual; null = ainda carregando a contagem. */
+    imageCount() {
+      const c = this.currentSchedule?.image_count
+      return c === undefined ? null : c
+    },
+    /** Bloqueia ações do modal principal enquanto há sub-modal/upload/gravação. */
     busy() {
-      return this.showRessalva || this.uploadingPhotos || this.savingRessalva || this.showSuccess
+      return (
+        this.showRessalva ||
+        this.showImagens ||
+        this.uploadingPhotos ||
+        this.savingRessalva ||
+        this.deletingPhoto ||
+        !!this.savingDecision
+      )
+    },
+  },
+  watch: {
+    currentIndex() {
+      this.ensureImageCount()
     },
   },
   mounted() {
@@ -354,6 +390,32 @@ export default {
       return oc && oc !== '-' ? oc : '—'
     },
 
+    /**
+     * Ordena as notas igual à planilha de Conferência (exportConferenciaExcel):
+     * dois grupos — agendados e "Não agendado" — e, dentro de cada grupo, por
+     * número da NF em ordem DECRESCENTE. O resultado é a sequência linear que o
+     * usuário percorre nota a nota.
+     */
+    orderSchedules(list) {
+      const norm = str =>
+        String(str || '')
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .trim()
+          .toLowerCase()
+      const isNaoAgendado = s => norm(s.status) === 'nao agendado'
+      const sortDesc = arr =>
+        arr.slice().sort((a, b) => {
+          const na = parseInt(String(a.number ?? '').replace(/\D/g, ''), 10)
+          const nb = parseInt(String(b.number ?? '').replace(/\D/g, ''), 10)
+          if (!isNaN(na) && !isNaN(nb)) return nb - na
+          return String(b.number ?? '').localeCompare(String(a.number ?? ''))
+        })
+      const agendados = list.filter(s => !isNaoAgendado(s))
+      const naoAgendados = list.filter(isNaoAgendado)
+      return [...sortDesc(agendados), ...sortDesc(naoAgendados)]
+    },
+
     async fetchSchedules() {
       this.loading = true
       this.error = null
@@ -363,8 +425,9 @@ export default {
         )
         const data = typeof resp === 'string' ? JSON.parse(resp) : resp
         const list = (data && data.schedules) || []
-        this.schedules = Array.isArray(list) ? list : []
+        this.schedules = this.orderSchedules(Array.isArray(list) ? list : [])
         this.currentIndex = 0
+        this.ensureImageCount()
       } catch (err) {
         this.error =
           err?.message || 'Não foi possível carregar as notas da carga.'
@@ -383,14 +446,83 @@ export default {
       this.currentIndex -= 1
     },
 
-    /** "Recebido": nada muda no agendamento — apenas avança. */
+    /** "Recebido": registra a decisão no histórico e avança. */
     onReceived() {
-      if (this.busy) return
-      this.advance()
+      this.registerDecision('Recebido')
     },
 
-    /** "Recusado": abre o sub-modal de ressalva. */
+    /**
+     * "Recusado": registra a decisão no histórico e avança. As ressalvas e
+     * imagens são registradas separadamente pelos botões "Ressalva"/"Imagens".
+     */
     onRefused() {
+      this.registerDecision('Recusado')
+    },
+
+    /**
+     * Grava no histórico do agendamento a decisão escolhida pelo usuário
+     * ("Recebido"/"Recusado") e só então avança para a próxima nota. Em caso de
+     * falha, mantém a nota atual para permitir nova tentativa (não perde o registro).
+     */
+    async registerDecision(decision) {
+      if (this.busy) return
+      const schedule = this.currentSchedule
+      if (!schedule) {
+        this.advance()
+        return
+      }
+      this.savingDecision = decision
+      try {
+        const resp = await apiService.post(
+          `/schedules/${encodeURIComponent(schedule.id)}/conference`,
+          { decision }
+        )
+        const data = typeof resp === 'string' ? JSON.parse(resp) : resp
+        // Reflete a eventual reversão de status ("Em conferência" → "Solicitado").
+        if (data && data.status) schedule.status = data.status
+        this.advance()
+      } catch (err) {
+        alert(err?.message || 'Erro ao registrar a decisão. Tente novamente.')
+      } finally {
+        this.savingDecision = null
+      }
+    },
+
+    // ---------------------------------------------------------------------
+    // Contagem de imagens (modo leve, sem baixar o conteúdo)
+    // ---------------------------------------------------------------------
+    /** Busca a contagem de imagens da NF atual (apenas se ainda desconhecida). */
+    async ensureImageCount() {
+      const s = this.currentSchedule
+      if (!s || s.image_count !== undefined) return
+      s.image_count = null // estado "carregando" para o badge
+      try {
+        const resp = await apiService.get(
+          `/schedules/${encodeURIComponent(s.id)}/images?light=1`
+        )
+        const data = typeof resp === 'string' ? JSON.parse(resp) : resp
+        s.image_count =
+          typeof data?.count === 'number'
+            ? data.count
+            : ((data && data.images) || []).length
+      } catch (_) {
+        s.image_count = 0
+      }
+    },
+
+    /** Recalcula a contagem de imagens da NF atual (após enviar/apagar). */
+    async refreshImageCount() {
+      const s = this.currentSchedule
+      if (!s) return
+      delete s.image_count
+      await this.ensureImageCount()
+    },
+
+    // ---------------------------------------------------------------------
+    // Ressalvas
+    // ---------------------------------------------------------------------
+    /** Abre o modal de ressalvas, pré-marcando as já atribuídas à NF. */
+    openRessalva() {
       if (this.busy) return
       this.selectedSiglas = this.currentSchedule?.exceptions
         ? String(this.currentSchedule.exceptions)
@@ -398,8 +530,6 @@ export default {
             .map(s => s.trim())
             .filter(Boolean)
         : []
-      this.photos = []
-      this.ressalvaStep = 'select'
       this.showRessalva = true
       if (this.ressalvas.length === 0) this.fetchRessalvas()
     },
@@ -429,19 +559,19 @@ export default {
       else this.selectedSiglas.splice(i, 1)
     },
 
+    /** "Voltar" do modal de ressalvas: cancela as alterações. */
     cancelRessalva() {
       if (this.savingRessalva) return
       this.showRessalva = false
       this.selectedSiglas = []
-      this.photos = []
-      this.existingPhotos = []
-      this.viewer = null
-      this.ressalvaStep = 'select'
     },
 
-    /** Grava as siglas em schedule_list.exceptions e segue para a etapa de fotos. */
+    /**
+     * "Confirmar": substitui todas as ressalvas da NF pelas selecionadas
+     * (lista vazia = remove todas) e atualiza a contagem do botão.
+     */
     async confirmRessalva() {
-      if (this.selectedSiglas.length === 0 || this.savingRessalva) return
+      if (this.savingRessalva) return
       const schedule = this.currentSchedule
       if (!schedule) return
       this.savingRessalva = true
@@ -451,16 +581,37 @@ export default {
           { siglas: this.selectedSiglas }
         )
         const data = typeof resp === 'string' ? JSON.parse(resp) : resp
-        // Reflete localmente para a info da nota e revisões posteriores
+        // Reflete localmente para o badge e a info da nota.
         schedule.exceptions =
-          (data && data.exceptions) || this.selectedSiglas.join(',')
-        this.ressalvaStep = 'foto'
-        this.fetchExistingImages()
+          data && data.exceptions != null
+            ? data.exceptions
+            : this.selectedSiglas.join(',')
+        this.showRessalva = false
+        this.selectedSiglas = []
       } catch (err) {
         alert(err?.message || 'Erro ao salvar ressalvas. Tente novamente.')
       } finally {
         this.savingRessalva = false
       }
+    },
+
+    // ---------------------------------------------------------------------
+    // Imagens
+    // ---------------------------------------------------------------------
+    /** Abre o modal de imagens e carrega as miniaturas já existentes. */
+    openImagens() {
+      if (this.busy) return
+      this.showImagens = true
+      this.fetchExistingImages()
+    },
+
+    /** "Voltar" do modal de imagens: fecha e confere/atualiza a contagem. */
+    closeImagens() {
+      if (this.uploadingPhotos || this.deletingPhoto) return
+      this.showImagens = false
+      this.existingPhotos = []
+      this.viewer = null
+      this.refreshImageCount()
     },
 
     /** Carrega as imagens já enviadas do agendamento (Drive) para miniaturas. */
@@ -477,44 +628,12 @@ export default {
         this.existingPhotos = ((data && data.images) || []).filter(
           im => im && im.dataUrl
         )
+        // Mantém o badge sincronizado com o que está aberto no modal.
+        schedule.image_count = this.existingPhotos.length
       } catch (_) {
         this.existingPhotos = []
       } finally {
         this.loadingExisting = false
-      }
-    },
-
-    openViewer(item) {
-      this.viewer = item
-    },
-
-    closeViewer() {
-      if (this.deletingPhoto) return
-      this.viewer = null
-    },
-
-    /** Apaga a imagem em visualização (Drive, se já enviada; ou da lista local). */
-    async deleteViewed() {
-      if (!this.viewer || this.deletingPhoto) return
-      if (this.viewer.type === 'captured') {
-        this.photos.splice(this.viewer.idx, 1)
-        this.viewer = null
-        return
-      }
-      const schedule = this.currentSchedule
-      this.deletingPhoto = true
-      try {
-        await apiService.delete(
-          `/schedules/${encodeURIComponent(schedule.id)}/images/${encodeURIComponent(this.viewer.id)}`
-        )
-        this.existingPhotos = this.existingPhotos.filter(
-          p => p.id !== this.viewer.id
-        )
-        this.viewer = null
-      } catch (err) {
-        alert(err?.message || 'Erro ao apagar imagem. Tente novamente.')
-      } finally {
-        this.deletingPhoto = false
       }
     },
 
@@ -529,60 +648,126 @@ export default {
       if (!file) return
       const reader = new FileReader()
       reader.onload = () => {
-        this.photos.push({
-          name: file.name || `foto-${Date.now()}.jpg`,
-          dataUrl: String(reader.result || ''),
-        })
+        this.uploadPhoto(file, String(reader.result || ''))
       }
       reader.readAsDataURL(file)
     },
 
-    removePhoto(idx) {
-      if (this.uploadingPhotos) return
-      this.photos.splice(idx, 1)
-    },
-
-    /** Envia as fotos (se houver) e avança para a próxima nota. */
-    async finishPhotos() {
-      if (this.uploadingPhotos) return
+    /**
+     * Envia a foto recém-capturada imediatamente, identificando-a com o e-mail
+     * do usuário e a data/hora (no nome do arquivo; o servidor também registra
+     * autor e timestamp nas propriedades da imagem).
+     */
+    async uploadPhoto(file, dataUrl) {
       const schedule = this.currentSchedule
+      if (!schedule) return
+      const base64 = String(dataUrl).split(',')[1] || ''
+      if (!base64) return
       this.uploadingPhotos = true
       try {
-        for (const p of this.photos) {
-          const base64 = String(p.dataUrl).split(',')[1] || ''
-          if (!base64) continue
-          await apiService.post(
-            `/schedules/${encodeURIComponent(schedule.id)}/images`,
-            { fileName: p.name, base64 }
-          )
-        }
-        this.showRessalva = false
-        this.uploadingPhotos = false
-        this.selectedSiglas = []
-        this.photos = []
-        this.existingPhotos = []
-        this.viewer = null
-        this.ressalvaStep = 'select'
-        this.runSuccessThenAdvance('Ressalva registrada')
+        const email = this.currentUserEmail()
+        const stamp = this.fileStamp()
+        const ext =
+          file.name && file.name.includes('.')
+            ? file.name.split('.').pop().toLowerCase()
+            : 'jpg'
+        const safeEmail = String(email).replace(/[^\w.@-]/g, '_')
+        const fileName = `${safeEmail}_${stamp}.${ext}`
+        await apiService.post(
+          `/schedules/${encodeURIComponent(schedule.id)}/images`,
+          { fileName, base64 }
+        )
+        await this.fetchExistingImages() // atualiza miniaturas e contagem
       } catch (err) {
+        alert(err?.message || 'Erro ao enviar imagem. Tente novamente.')
+      } finally {
         this.uploadingPhotos = false
-        alert(err?.message || 'Erro ao enviar imagens. Tente novamente.')
       }
     },
 
-    /** Mostra a animação de carregamento → confirmação e então avança. */
-    runSuccessThenAdvance(label) {
-      this.successLabel = label
-      this.successDone = false
-      this.showSuccess = true
-      // breve "carregando" e em seguida confirmação
-      setTimeout(() => {
-        this.successDone = true
-      }, 500)
-      setTimeout(() => {
-        this.showSuccess = false
-        this.advance()
-      }, 1100)
+    openViewer(item) {
+      this.viewer = item
+    },
+
+    closeViewer() {
+      if (this.deletingPhoto) return
+      this.viewer = null
+    },
+
+    /** Apaga a imagem em visualização (Drive) e atualiza a contagem. */
+    async deleteViewed() {
+      if (!this.viewer || this.deletingPhoto) return
+      const schedule = this.currentSchedule
+      this.deletingPhoto = true
+      try {
+        await apiService.delete(
+          `/schedules/${encodeURIComponent(schedule.id)}/images/${encodeURIComponent(this.viewer.id)}`
+        )
+        this.existingPhotos = this.existingPhotos.filter(
+          p => p.id !== this.viewer.id
+        )
+        if (schedule) schedule.image_count = this.existingPhotos.length
+        this.viewer = null
+      } catch (err) {
+        alert(err?.message || 'Erro ao apagar imagem. Tente novamente.')
+      } finally {
+        this.deletingPhoto = false
+      }
+    },
+
+    // ---------------------------------------------------------------------
+    // Utilitários
+    // ---------------------------------------------------------------------
+    /**
+     * E-mail do usuário logado (mesma prioridade do restante do app:
+     * config.emailSettings.primaryEmail > email > user > username > name).
+     */
+    currentUserEmail() {
+      try {
+        const raw = localStorage.getItem('user')
+        if (!raw) return 'desconhecido'
+        const u = JSON.parse(raw)
+        let email = ''
+        if (u && u.config) {
+          try {
+            const c = typeof u.config === 'string' ? JSON.parse(u.config) : u.config
+            if (c && c.emailSettings && c.emailSettings.primaryEmail) {
+              email = c.emailSettings.primaryEmail
+            }
+          } catch (_) { /* config inválida — usa fallback abaixo */ }
+        }
+        if (!email) {
+          email =
+            (u && (u.email || u.user || u.username || u.name)) || 'desconhecido'
+        }
+        return String(email)
+      } catch (_) {
+        return 'desconhecido'
+      }
+    },
+
+    /** Carimbo de data/hora para o nome do arquivo: aaaa-mm-dd_hh-mm-ss. */
+    fileStamp() {
+      const d = new Date()
+      const p = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`
+    },
+
+    /** Formata o timestamp ISO de upload para exibição no visualizador. */
+    formatUploadedAt(iso) {
+      try {
+        const d = new Date(iso)
+        if (isNaN(d.getTime())) return iso
+        return d.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      } catch (_) {
+        return iso
+      }
     },
 
     /** Avança para a próxima nota; ao terminar a última, encerra. */
@@ -731,6 +916,62 @@ export default {
   cursor: pointer;
 }
 
+/* Linha de ações: Ressalva | Imagens (acima do rodapé) */
+.rcb-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.rcb-action-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 12px 10px;
+}
+.rcb-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.rcb-action-btn--ressalva {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+.rcb-action-btn--ressalva:not(:disabled):hover {
+  background: #fde68a;
+}
+.rcb-action-btn--imagens {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #075985;
+}
+.rcb-action-btn--imagens:not(:disabled):hover {
+  background: #bae6fd;
+}
+.rcb-action-count {
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.12);
+  color: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
 /* Rodapé: dois botões dividindo o modal */
 .rcb-footer {
   display: flex;
@@ -772,7 +1013,7 @@ export default {
   background: #15803d;
 }
 
-/* Sub-modal Ressalva */
+/* Sub-modal (Ressalvas / Imagens) */
 .rcb-sub-overlay {
   position: fixed;
   inset: 0;
@@ -853,9 +1094,6 @@ export default {
   font-size: 1.05rem;
   padding: 16px 12px;
 }
-.rcb-sub-footer--single .rcb-btn {
-  flex: 1;
-}
 .rcb-btn--cancel {
   background: #64748b;
 }
@@ -869,17 +1107,28 @@ export default {
   background: #1d4ed8;
 }
 
-/* Fotos */
+/* Imagens */
 .rcb-photo-hint {
   margin: 0 0 14px;
   color: #475569;
   font-size: 0.95rem;
 }
+.rcb-photo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #94a3b8;
+  padding: 24px 0;
+}
+.rcb-photo-empty i {
+  font-size: 2.2rem;
+}
 .rcb-photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 4px;
 }
 .rcb-photo-thumb {
   position: relative;
@@ -896,36 +1145,6 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-.rcb-photo-remove {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  cursor: pointer;
-}
-.rcb-photo-add {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 14px;
-  border: 2px dashed #93c5fd;
-  border-radius: 10px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-weight: 600;
-  cursor: pointer;
-}
-.rcb-photo-add:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 .rcb-hidden-input {
   display: none;
@@ -949,9 +1168,6 @@ export default {
   color: #fff;
   font-size: 0.6rem;
 }
-.rcb-photo-badge--new {
-  background: rgba(202, 138, 4, 0.9);
-}
 
 /* Visualizador de imagem em tela cheia */
 .rcb-viewer-overlay {
@@ -968,9 +1184,22 @@ export default {
 }
 .rcb-viewer-img {
   max-width: 100%;
-  max-height: calc(100% - 80px);
+  max-height: calc(100% - 120px);
   object-fit: contain;
   border-radius: 8px;
+}
+.rcb-viewer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 12px;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+}
+.rcb-viewer-meta i {
+  margin-right: 4px;
+  opacity: 0.8;
 }
 .rcb-viewer-actions {
   display: flex;
@@ -985,38 +1214,5 @@ export default {
   border-radius: 10px;
   font-size: 1.05rem;
   padding: 14px 12px;
-}
-
-/* Animação de sucesso */
-.rcb-success-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 3200;
-  background: rgba(15, 23, 42, 0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.rcb-success-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-.rcb-success-circle {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: #16a34a;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.6rem;
-}
-.rcb-success-label {
-  color: #fff;
-  font-size: 1.2rem;
-  font-weight: 600;
 }
 </style>
