@@ -47,8 +47,8 @@ function resolveBaseUrl(win, { backendEnv = null } = {}) {
   return apiMod.getApiUrl()
 }
 
-const PROD = 'https://portal.mercocamptech.com.br/api'
-const HOMOLOG = 'https://recebhomolog.mercocamptech.com.br/api'
+const PROD = 'https://dokploy.mercocamptech.com.br/api'
+const HOMOLOG = 'https://dokploy.mercocamptech.com.br/api'
 
 // 1. Android nativo (androidScheme:https) → https://localhost SEM porta, sem window.Capacitor
 //    Sem preferência salva → DEFAULT homolog.

@@ -42,8 +42,8 @@ function getEnvironmentLabel() {
  * localStorage; getNativeBackendEnv() lê na inicialização para resolver
  * BASE_URL antes do bundle subir.
  */
-export const NATIVE_PRODUCTION_API = 'https://portal.mercocamptech.com.br/api'
-export const NATIVE_HOMOLOG_API = 'https://recebhomolog.mercocamptech.com.br/api'
+export const NATIVE_PRODUCTION_API = 'https://dokploy.mercocamptech.com.br/api'
+export const NATIVE_HOMOLOG_API = 'https://dokploy.mercocamptech.com.br/api'
 
 const NATIVE_BACKEND_ENV_KEY = 'native_backend_env'
 
