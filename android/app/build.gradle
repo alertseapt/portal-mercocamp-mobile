@@ -16,7 +16,23 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Assinatura estável do build debug: usa um keystore fixo versionado, para
+    // que todo APK (local e CI) tenha a MESMA assinatura. Sem isso, cada build
+    // do CI assina com uma chave debug efêmera e a atualização "por cima" falha
+    // (assinaturas divergentes). Veja portal-debug.p12 nesta pasta.
+    signingConfigs {
+        debug {
+            storeFile file('portal-debug.p12')
+            storePassword 'portalmercocamp'
+            keyAlias 'portal'
+            keyPassword 'portalmercocamp'
+            storeType 'PKCS12'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

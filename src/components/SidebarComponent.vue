@@ -27,6 +27,20 @@
     <!-- Menu -->
     <nav class="sidebar-menu">
       <div class="main-menu">
+        <!-- Atualização do app: só no app nativo e quando há nova versão -->
+        <div
+          v-if="updateAvailable"
+          class="menu-item update-item"
+          @click="onUpdateClick"
+        >
+          <div class="menu-main" :title="`Atualizar para ${updateTag}`">
+            <div class="icon-container">
+              <i class="fa fa-arrow-up"></i>
+            </div>
+            <span class="menu-label">Atualização {{ updateTag }}</span>
+          </div>
+        </div>
+
         <!-- Dashboard - oculto para níveis 4 e 8 -->
         <div
           v-if="
@@ -806,6 +820,7 @@ import {
   isBiArmazensPortalOnlyUser,
   canAccessBiArmazensAnalise,
 } from '@/utils/biDiretoriaPortalAccess.js'
+import { checkForAppUpdate, openAppUpdate } from '@/services/appUpdateService.js'
 
 export default {
   name: 'SidebarComponent',
@@ -842,6 +857,10 @@ export default {
       isDevExpanded: false,
       cacheCheckInterval: null,
       userClientsCache: null, // Cache local dos clientes do usuário
+      // Atualização do app (nativo): preenchido por checkAppUpdate()
+      updateAvailable: false,
+      updateTag: '',
+      updateUrl: '',
     }
   },
   computed: {
@@ -1034,6 +1053,9 @@ export default {
         }
       }, 2000) // Verificar a cada 2 segundos
     }
+
+    // Verificar se há atualização do app (apenas no app nativo).
+    this.checkAppUpdate()
   },
   beforeUnmount() {
     // Limpar intervalo quando o componente for destruído
@@ -1131,6 +1153,48 @@ export default {
     canAccessBiArmazensAnalise,
     canAccessBiGroupLinkGerencial,
     canAccessBiAdministradores,
+
+    /** Verifica no GitHub se há uma versão mais nova do app (só nativo). */
+    async checkAppUpdate() {
+      try {
+        const info = await checkForAppUpdate()
+        if (info && info.available) {
+          this.updateTag = info.tag
+          this.updateUrl = info.url
+          this.updateAvailable = true
+          console.log(`🆕 [APP-UPDATE] Nova versão disponível: ${info.tag}`)
+        }
+      } catch (e) {
+        // checkForAppUpdate já trata erros; aqui é só segurança extra.
+        console.warn('⚠️ [APP-UPDATE] checkAppUpdate falhou:', e?.message || e)
+      }
+    },
+
+    /** Clique no botão de atualização: confirma e então abre o APK para instalar. */
+    async onUpdateClick() {
+      if (!this.updateAvailable) return
+      let confirmed = false
+      try {
+        const { useSystemDialogStore } = await import('@/stores/systemDialog.js')
+        const dialogStore = useSystemDialogStore()
+        confirmed = await dialogStore.showConfirm(
+          `Deseja atualizar o app para a versão ${this.updateTag}?\n\n` +
+            'O download da nova versão será aberto. Após baixar, toque no ' +
+            'arquivo para concluir a instalação.',
+          'Atualizar aplicativo',
+          { primaryLabel: 'Atualizar' }
+        )
+      } catch (e) {
+        // Fallback para confirmação nativa se o store não estiver disponível.
+        confirmed = window.confirm(
+          `Deseja atualizar o app para a versão ${this.updateTag}?`
+        )
+      }
+      if (confirmed) {
+        openAppUpdate(this.updateUrl)
+      }
+    },
+
     async loadUserClients() {
       if (!this.user || !this.user.cli_access) {
         return
@@ -1381,6 +1445,33 @@ export default {
   transition:
     background 0.2s,
     box-shadow 0.2s !important;
+}
+
+/* Botão de atualização do app — destaque acima do Dashboard */
+.update-item {
+  background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+  box-shadow: 0 2px 10px rgba(22, 163, 74, 0.35) !important;
+}
+.update-item > .menu-main {
+  color: #fff !important;
+}
+.update-item .menu-label {
+  font-weight: 700 !important;
+}
+.update-item:hover > .menu-main {
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+.update-item .icon-container i {
+  animation: update-bounce 1.6s ease-in-out infinite;
+}
+@keyframes update-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 .menu-main {
