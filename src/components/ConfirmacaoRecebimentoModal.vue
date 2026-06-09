@@ -297,6 +297,33 @@
         </button>
       </div>
     </div>
+
+    <!-- Aviso informativo: a partir daqui as notas têm status "Não agendado" -->
+    <div v-if="showNaoAgendadoNotice" class="rcb-sub-overlay">
+      <div class="rcb-sub-card rcb-notice-card">
+        <div class="rcb-sub-header">
+          <h3>Atenção</h3>
+        </div>
+        <div class="rcb-sub-body">
+          <div class="rcb-notice">
+            <i class="fas fa-info-circle"></i>
+            <p>
+              As próximas notas têm o status
+              <strong>"Não agendado"</strong>.
+            </p>
+          </div>
+        </div>
+        <div class="rcb-sub-footer rcb-sub-footer--single">
+          <button
+            type="button"
+            class="rcb-btn rcb-btn--confirm"
+            @click="dismissNaoAgendadoNotice"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -337,6 +364,11 @@ export default {
 
       // Decisão da conferência em gravação: 'Recebido' | 'Recusado' | null
       savingDecision: null,
+
+      // Aviso (informativo) na transição para as notas "Não agendado"
+      showNaoAgendadoNotice: false,
+      naoAgendadoStartIndex: -1, // índice da 1ª nota "Não agendado" (-1 se não houver)
+      naoAgendadoNoticeShown: false, // garante que o aviso apareça uma única vez
     }
   },
   computed: {
@@ -371,7 +403,8 @@ export default {
         this.uploadingPhotos ||
         this.savingRessalva ||
         this.deletingPhoto ||
-        !!this.savingDecision
+        !!this.savingDecision ||
+        this.showNaoAgendadoNotice
       )
     },
   },
@@ -388,6 +421,16 @@ export default {
     ocDisplay(s) {
       const oc = s && s.oc != null ? String(s.oc).trim() : ''
       return oc && oc !== '-' ? oc : '—'
+    },
+
+    /** true quando o status da nota é "Não agendado" (ignora acento/caixa). */
+    isNaoAgendado(s) {
+      const norm = String(s?.status || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .trim()
+        .toLowerCase()
+      return norm === 'nao agendado'
     },
 
     /**
@@ -427,6 +470,12 @@ export default {
         const list = (data && data.schedules) || []
         this.schedules = this.orderSchedules(Array.isArray(list) ? list : [])
         this.currentIndex = 0
+        // Após a ordenação, as notas "Não agendado" ficam no fim; guardamos o
+        // índice da primeira delas para avisar na transição.
+        this.naoAgendadoStartIndex = this.schedules.findIndex(s =>
+          this.isNaoAgendado(s)
+        )
+        this.naoAgendadoNoticeShown = false
         this.ensureImageCount()
       } catch (err) {
         this.error =
@@ -773,10 +822,26 @@ export default {
     /** Avança para a próxima nota; ao terminar a última, encerra. */
     advance() {
       if (this.currentIndex < this.total - 1) {
-        this.currentIndex += 1
+        const nextIndex = this.currentIndex + 1
+        this.currentIndex = nextIndex
+        // Ao terminar as notas com status diferente de "Não agendado" e cruzar
+        // para a primeira "Não agendado", exibe um aviso informativo (uma vez).
+        if (
+          !this.naoAgendadoNoticeShown &&
+          this.naoAgendadoStartIndex > 0 &&
+          nextIndex === this.naoAgendadoStartIndex
+        ) {
+          this.naoAgendadoNoticeShown = true
+          this.showNaoAgendadoNotice = true
+        }
       } else {
         this.$emit('close')
       }
+    },
+
+    /** Fecha o aviso informativo de notas "Não agendado". */
+    dismissNaoAgendadoNotice() {
+      this.showNaoAgendadoNotice = false
     },
   },
 }
@@ -1034,6 +1099,27 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+/* Card do aviso informativo (notas "Não agendado") */
+.rcb-notice-card {
+  max-width: 460px;
+}
+.rcb-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 2px;
+}
+.rcb-notice i {
+  font-size: 2rem;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+.rcb-notice p {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1e293b;
+  line-height: 1.4;
 }
 .rcb-sub-header {
   padding: 16px 20px;
