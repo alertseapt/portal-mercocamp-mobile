@@ -1615,6 +1615,7 @@
               "
               @notification="addNotification"
               @load-updated="handleLoadUpdated"
+              @open-nfe-info="openInfoModal"
             />
           </div>
         </div>

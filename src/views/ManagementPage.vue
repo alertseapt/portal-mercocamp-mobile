@@ -599,12 +599,15 @@
                     <tr
                       v-for="schedule in load.schedules"
                       :key="schedule.id"
+                      class="clickable-schedule-row"
                       :class="{
                         'disabled-row': isLoadCheckboxDisabled(load.load_id),
                         'ghost-schedule': schedule.isGhost,
                       }"
+                      @click="openScheduleNfeInfo(schedule)"
+                      title="Clique para ver as informações da NF-e"
                     >
-                      <td class="checkbox-column">
+                      <td class="checkbox-column" @click.stop>
                         <input
                           type="checkbox"
                           :checked="
@@ -939,7 +942,10 @@
                     <tr
                       v-for="schedule in load.schedules"
                       :key="schedule.id"
+                      class="clickable-schedule-row"
                       :class="{ 'ghost-schedule': schedule.isGhost }"
+                      @click="openScheduleNfeInfo(schedule)"
+                      title="Clique para ver as informações da NF-e"
                     >
                       <td>{{ schedule.number }}</td>
                       <td>{{ schedule.client_name || schedule.client }}</td>
@@ -3435,6 +3441,15 @@ export default {
     closeLoadResultModal() {
       this.showLoadResultModal = false
       this.closeTransportModal()
+    },
+
+    /**
+     * Abre o modal de informações da NF-e do agendamento clicado. Delega ao
+     * App.vue (que busca o agendamento completo e usa o store global do modal).
+     */
+    openScheduleNfeInfo(schedule) {
+      if (!schedule || !schedule.id) return
+      this.$emit('open-nfe-info', schedule)
     },
 
     /**
@@ -8141,6 +8156,14 @@ export default {
 
 .load-schedules-table tbody tr:hover {
   background: #f3f4f6;
+}
+
+/* Linha clicável: abre o modal de informações da NF-e (exceto a 1ª coluna/checkbox) */
+.load-schedules-table tbody tr.clickable-schedule-row {
+  cursor: pointer;
+}
+.load-schedules-table tbody tr.clickable-schedule-row .checkbox-column {
+  cursor: default;
 }
 
 .load-schedules-table tbody tr:last-child td {
