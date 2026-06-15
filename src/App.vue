@@ -1051,7 +1051,7 @@
                       <!-- Colunas para usuários que NÃO são nível 1 -->
                       <th
                         v-if="userLevel !== 1"
-                        class="sortable-column"
+                        class="sortable-column col-client"
                         @click="sortByColumn('client')"
                         :class="{
                           'sorted-asc':
@@ -1073,14 +1073,18 @@
                         ></i>
                         <i v-else class="fas fa-sort sort-icon-inactive"></i>
                       </th>
-                      <th v-if="userLevel !== 1" style="text-align: center">
+                      <th
+                        v-if="userLevel !== 1"
+                        class="col-date"
+                        style="text-align: center"
+                      >
                         Solicitação
                       </th>
                       <!-- Novas colunas para usuários nível 1 -->
                       <th v-if="userLevel === 1">Fornecedor</th>
                       <th v-if="userLevel === 1">Transportadora</th>
                       <th
-                        class="sortable-column"
+                        class="sortable-column col-date"
                         style="text-align: center"
                         @click="sortByColumn('date')"
                         :class="{
@@ -1169,8 +1173,14 @@
                         {{ schedule.oc || '-' }}
                       </td>
                       <!-- Colunas para usuários que NÃO são nível 1 -->
-                      <td v-if="userLevel !== 1">{{ schedule.client }}</td>
-                      <td v-if="userLevel !== 1" style="text-align: center">
+                      <td v-if="userLevel !== 1" class="col-client">
+                        {{ schedule.client }}
+                      </td>
+                      <td
+                        v-if="userLevel !== 1"
+                        class="col-date"
+                        style="text-align: center"
+                      >
                         {{ formatDateShort(getRequestDate(schedule)) }}
                       </td>
                       <!-- Novas colunas para usuários nível 1 -->
@@ -1180,7 +1190,7 @@
                       <td v-if="userLevel === 1">
                         {{ getTransportadoraName(schedule) || '-' }}
                       </td>
-                      <td style="text-align: center">
+                      <td class="col-date" style="text-align: center">
                         {{ schedule.prevision ? '~ ' : ''
                         }}{{ formatDateShort(schedule.date) }}
                       </td>
@@ -9541,6 +9551,41 @@ window.apiClient = apiClient
 .schedules-table th.col-status {
   width: 180px !important;
   min-width: 180px !important;
+}
+
+/* Colunas de data (Solicitação / Entrega): largura padrão de data e iguais entre
+   si. Para nível 1 a 4ª coluna é texto (Transportadora) e não recebe esta classe,
+   mantendo a largura atual. Especificidade alta para vencer a regra de nth-child(4). */
+.content-area:not(.schedules-list) .schedules-table th.col-date,
+.content-area:not(.schedules-list) .schedules-table td.col-date,
+.schedules-list .schedules-table th.col-date,
+.schedules-list .schedules-table td.col-date {
+  /* table-layout é auto: width:1% + nowrap = encolhe ao conteúdo (a coluna
+     deixa de ser "gulosa" e não estica mais). min-width garante o cabeçalho
+     "Solicitação" e mantém Solicitação e Entrega com a MESMA largura. */
+  width: 1% !important;
+  min-width: 110px !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+}
+
+/* Coluna Cliente (somente níveis != 1): absorve o espaço livre da tabela, para
+   que as colunas de data fiquem pequenas. Não afeta a coluna Fornecedor (nível 1). */
+.content-area:not(.schedules-list) .schedules-table th.col-client,
+.content-area:not(.schedules-list) .schedules-table td.col-client {
+  width: auto !important;
+  min-width: 220px !important;
+  max-width: none !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Coluna de ações: encolhe ao conteúdo (não absorve sobra de espaço) */
+.schedules-table th.actions-column-header,
+.schedules-table td.actions-column {
+  width: 1% !important;
+  white-space: nowrap !important;
 }
 
 /* Estilos para seleção de linhas */
