@@ -131,6 +131,14 @@
           <i class="fas fa-code"></i>
           Dev
         </button>
+        <!-- Aba Evidências - arquivos (imagens/vídeos) do agendamento no Drive -->
+        <button
+          :class="['tab-button', { active: activeTab === 'evidencias' }]"
+          @click="setActiveTab('evidencias')"
+        >
+          <i class="fas fa-images"></i>
+          Evidências
+        </button>
       </div>
 
       <!-- Content -->
@@ -578,6 +586,132 @@
             <p>Este agendamento ainda não possui histórico de alterações.</p>
           </div>
         </div>
+
+        <!-- Evidências Tab -->
+        <div
+          v-else-if="activeTab === 'evidencias'"
+          class="tab-content evidencias-tab-content"
+        >
+          <div class="evidencias-header">
+            <button
+              type="button"
+              class="evidencia-add-btn"
+              :disabled="uploadingEvidencia"
+              @click="triggerEvidenciaUpload"
+            >
+              <i
+                :class="
+                  uploadingEvidencia ? 'fas fa-spinner fa-spin' : 'fas fa-plus'
+                "
+              ></i>
+              {{ uploadingEvidencia ? 'Enviando...' : 'Adicionar' }}
+            </button>
+            <input
+              ref="evidenciaInput"
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              class="evidencia-hidden-input"
+              @change="onEvidenciaSelected"
+            />
+          </div>
+          <div v-if="loadingEvidencias" class="evidencias-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            Carregando evidências...
+          </div>
+          <div v-else-if="evidenciasError" class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Erro ao carregar evidências</h3>
+            <p>{{ evidenciasError }}</p>
+            <button class="evidencia-retry" @click="fetchEvidencias">
+              Tentar novamente
+            </button>
+          </div>
+          <div v-else-if="evidencias.length === 0" class="empty-state">
+            <i class="fas fa-images"></i>
+            <h3>Nenhuma evidência</h3>
+            <p>Este agendamento ainda não possui arquivos anexados.</p>
+          </div>
+          <div v-else class="evidencias-grid">
+            <button
+              v-for="ev in evidencias"
+              :key="ev.id"
+              type="button"
+              class="evidencia-thumb"
+              @click="openEvidencia(ev)"
+            >
+              <video
+                v-if="isVideo(ev)"
+                :src="ev.dataUrl"
+                class="evidencia-media"
+                muted
+                preload="metadata"
+              ></video>
+              <img
+                v-else
+                :src="ev.dataUrl"
+                :alt="ev.name"
+                class="evidencia-media"
+              />
+              <span v-if="isVideo(ev)" class="evidencia-play">
+                <i class="fas fa-play"></i>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visualizador de evidência (imagem/vídeo) -->
+      <div v-if="evidenciaViewer" class="evidencia-viewer-overlay">
+        <button
+          type="button"
+          class="evidencia-viewer-close"
+          title="Fechar"
+          @click="closeEvidencia"
+        >
+          <i class="fas fa-times"></i>
+        </button>
+        <div class="evidencia-viewer-media">
+          <video
+            v-if="isVideo(evidenciaViewer)"
+            :src="evidenciaViewer.dataUrl"
+            class="evidencia-viewer-content"
+            controls
+            autoplay
+            playsinline
+          ></video>
+          <img
+            v-else
+            :src="evidenciaViewer.dataUrl"
+            :alt="evidenciaViewer.name"
+            class="evidencia-viewer-content"
+          />
+        </div>
+        <div class="evidencia-viewer-info">
+          <span class="evidencia-viewer-meta">
+            <i class="fas fa-user"></i>
+            {{ evidenciaViewer.uploadedBy || 'Usuário não informado' }}
+          </span>
+          <span class="evidencia-viewer-meta">
+            <i class="fas fa-clock"></i>
+            {{ formatEvidenciaDate(evidenciaViewer.uploadedAt) }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Overlay de carregamento em tela cheia durante o envio de mídias.
+           Bloqueia toda a interação até o upload terminar. -->
+      <div v-if="uploadingEvidencia" class="evidencia-upload-overlay">
+        <div class="evidencia-upload-card">
+          <div class="evidencia-upload-spinner"></div>
+          <div class="evidencia-upload-label">Enviando mídias...</div>
+          <div v-if="uploadTotal > 1" class="evidencia-upload-sub">
+            {{ uploadCurrent }} de {{ uploadTotal }}
+          </div>
+          <div class="evidencia-upload-hint">
+            Não feche nem saia desta tela até concluir.
+          </div>
+        </div>
       </div>
 
       <!-- Footer removido - informação de última atualização não será mais exibida -->
@@ -629,6 +763,15 @@ export default {
       scrollbarKeepAliveInterval: null, // Intervalo para manter scrollbar visível
       selectedProductIndex: null, // Índice do produto selecionado na tabela
       devPollingInterval: null, // Polling da aba Dev em tempo real
+      // Aba Evidências (arquivos do agendamento no Google Drive)
+      evidencias: [], // { id, name, mimeType, dataUrl, uploadedAt, uploadedBy }
+      loadingEvidencias: false,
+      evidenciasError: null,
+      evidenciasLoaded: false,
+      evidenciaViewer: null, // arquivo em visualização
+      uploadingEvidencia: false, // envio de mídia em andamento
+      uploadCurrent: 0, // índice do arquivo sendo enviado
+      uploadTotal: 0, // total de arquivos selecionados
     }
   },
 
@@ -1278,6 +1421,108 @@ export default {
       ) {
         this.loadNfePdf()
       }
+      // Carrega as evidências (arquivos do Drive) na primeira vez que abre a aba
+      if (tab === 'evidencias' && !this.evidenciasLoaded && !this.loadingEvidencias) {
+        this.fetchEvidencias()
+      }
+    },
+
+    /** Detecta vídeo pelo mimeType ou extensão do arquivo. */
+    isVideo(ev) {
+      if (!ev) return false
+      if (ev.mimeType && String(ev.mimeType).startsWith('video/')) return true
+      return /\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(ev.name || '')
+    },
+
+    /** Busca os arquivos (imagens/vídeos) do agendamento no Drive. */
+    async fetchEvidencias() {
+      if (!this.nfeData || !this.nfeData.id) return
+      this.loadingEvidencias = true
+      this.evidenciasError = null
+      try {
+        const resp = await apiService.get(
+          `/schedules/${this.nfeData.id}/images`
+        )
+        const data = typeof resp === 'string' ? JSON.parse(resp) : resp
+        this.evidencias = ((data && data.images) || []).filter(
+          im => im && im.dataUrl
+        )
+        this.evidenciasLoaded = true
+      } catch (err) {
+        this.evidenciasError =
+          err?.message || 'Não foi possível carregar as evidências.'
+      } finally {
+        this.loadingEvidencias = false
+      }
+    },
+
+    openEvidencia(ev) {
+      this.evidenciaViewer = ev
+    },
+
+    closeEvidencia() {
+      this.evidenciaViewer = null
+    },
+
+    triggerEvidenciaUpload() {
+      if (this.uploadingEvidencia) return
+      this.$refs.evidenciaInput && this.$refs.evidenciaInput.click()
+    },
+
+    /** Lê o arquivo como base64 (sem o prefixo data:). */
+    fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () =>
+          resolve(String(reader.result || '').split(',')[1] || '')
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+    },
+
+    /** Envia ao Drive cada mídia selecionada no dispositivo e recarrega a lista. */
+    async onEvidenciaSelected(event) {
+      const files = Array.from(event.target.files || [])
+      event.target.value = '' // permite reselecionar o mesmo arquivo
+      if (!files.length || !this.nfeData || !this.nfeData.id) return
+      this.uploadTotal = files.length
+      this.uploadCurrent = 0
+      this.uploadingEvidencia = true
+      try {
+        for (const file of files) {
+          this.uploadCurrent += 1
+          const base64 = await this.fileToBase64(file)
+          if (!base64) continue
+          await apiService.post(`/schedules/${this.nfeData.id}/images`, {
+            fileName: file.name || `midia-${Date.now()}`,
+            base64,
+            mimeType: file.type || undefined,
+          })
+        }
+        // Recarrega a galeria após o envio
+        this.evidenciasLoaded = false
+        await this.fetchEvidencias()
+      } catch (err) {
+        alert(err?.message || 'Erro ao enviar mídia. Tente novamente.')
+      } finally {
+        this.uploadingEvidencia = false
+        this.uploadCurrent = 0
+        this.uploadTotal = 0
+      }
+    },
+
+    /** Formata a data ISO de inserção para dd/mm/aaaa HH:MM. */
+    formatEvidenciaDate(iso) {
+      if (!iso) return 'Data não informada'
+      const d = new Date(iso)
+      if (isNaN(d.getTime())) return String(iso)
+      return d.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
     },
 
     async loadNfePdf() {
@@ -3338,5 +3583,205 @@ export default {
 
 .product-row-selected td {
   color: #004085;
+}
+
+/* ===== Aba Evidências ===== */
+.evidencias-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.evidencia-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.evidencia-add-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+.evidencia-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.evidencia-hidden-input {
+  display: none;
+}
+
+/* Overlay de envio em tela cheia (bloqueia interação durante o upload) */
+.evidencia-upload-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: rgba(15, 23, 42, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.evidencia-upload-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.evidencia-upload-spinner {
+  width: 64px;
+  height: 64px;
+  border: 6px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: evidencia-spin 0.9s linear infinite;
+}
+@keyframes evidencia-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.evidencia-upload-label {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.evidencia-upload-sub {
+  color: #cbd5e1;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.evidencia-upload-hint {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+.evidencias-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 16px;
+  color: #475569;
+  font-size: 0.95rem;
+}
+.evidencia-retry {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+.evidencias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+  padding: 4px;
+}
+.evidencia-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  background: #f1f5f9;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.evidencia-thumb:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+.evidencia-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.evidencia-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.6rem;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+/* Visualizador em tela cheia */
+.evidencia-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+}
+.evidencia-viewer-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: #dc2626;
+  color: #fff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.evidencia-viewer-close:hover {
+  background: #b91c1c;
+}
+.evidencia-viewer-media {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+.evidencia-viewer-content {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.evidencia-viewer-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  justify-content: center;
+  margin-top: 14px;
+  padding-bottom: env(safe-area-inset-bottom);
+  color: #e2e8f0;
+  font-size: 0.95rem;
+}
+.evidencia-viewer-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.evidencia-viewer-meta i {
+  color: #94a3b8;
 }
 </style>

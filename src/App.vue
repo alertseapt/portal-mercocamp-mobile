@@ -5797,6 +5797,15 @@ export default {
             this.showDashboardPage = false
             this.showSchedulesList = false
 
+            // Reseta qualquer busca ativa ao (re)entrar na página, para que o
+            // carregamento abaixo exiba a lista completa. Necessário também
+            // porque loadSchedules agora ignora o resultado quando há busca ativa
+            // (proteção contra corrida que sobrescrevia a busca).
+            this.isSearchActive = false
+            this.currentSearchInfo = null
+            this.mainSearchInput = ''
+            this.originalSchedules = []
+
             if (this.pendingFilterNavigation) {
               // Navegação programática com filtros pré-aplicados (ex.: StatusPorClientesPage)
               // Pular refreshes custosos — ir direto para loadSchedules com filterLoading já ativo
@@ -6348,6 +6357,18 @@ export default {
           `🔧 Após deduplicação: ${uniqueSchedules.length} agendamentos únicos`
         )
 
+        // PROTEÇÃO CONTRA CORRIDA: se uma busca ficou ativa enquanto este
+        // carregamento estava em andamento (ou foi disparado depois dela), NÃO
+        // sobrescrever a lista — senão os resultados da busca somem e a lista
+        // volta a mostrar todos os agendamentos. A busca só é desfeita ao
+        // limpar a busca (que zera isSearchActive antes de recarregar).
+        if (this.isSearchActive) {
+          console.log(
+            '🔎 [LOAD] Busca ativa — descartando resultado de loadSchedules para não sobrescrever a busca'
+          )
+          return
+        }
+
         this.schedules = uniqueSchedules
 
         // Atualizar totalItems com base na resposta do backend
@@ -6384,7 +6405,10 @@ export default {
 
         console.log('🔍 [LOAD] === FIM loadSchedules() ===')
       } catch (error) {
-        this.schedules = []
+        // Não limpar a lista se há busca ativa (evita apagar resultados da busca)
+        if (!this.isSearchActive) {
+          this.schedules = []
+        }
         console.error('Erro ao carregar agendamentos:', error)
         this.addNotification('Erro ao carregar agendamentos', 'error')
       } finally {
@@ -6416,6 +6440,14 @@ export default {
           `🔧 Background - Após deduplicação: ${uniqueSchedules.length} agendamentos únicos`
         )
 
+        // Mesma proteção contra corrida do loadSchedules: não sobrescrever a busca ativa
+        if (this.isSearchActive) {
+          console.log(
+            '🔎 [LOAD] Busca ativa — descartando resultado de loadSchedulesInBackground'
+          )
+          return
+        }
+
         this.schedules = uniqueSchedules
         // paginação removida.total = response.pagination?.total || this.schedules.length
         // paginação removida - cálculo de páginas não é mais necessário
@@ -6425,7 +6457,9 @@ export default {
         )
         console.log('🔍 [LOAD] === FIM loadSchedulesInBackground() ===')
       } catch (error) {
-        this.schedules = []
+        if (!this.isSearchActive) {
+          this.schedules = []
+        }
         console.error('Erro ao carregar agendamentos em background:', error)
         this.addNotification('Erro ao carregar agendamentos', 'error')
         console.log(

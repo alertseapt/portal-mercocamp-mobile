@@ -90,8 +90,11 @@
               :style="{ width: item.progress + '%' }"
             ></div>
           </div>
-          <span v-if="item.status === 'error'" class="upload-queue-error"
-            >Falha</span
+          <span
+            v-if="item.status === 'error'"
+            class="upload-queue-error"
+            :title="item.errorMessage || 'Falha'"
+            >{{ item.errorMessage || 'Falha' }}</span
           >
         </div>
       </div>
@@ -394,8 +397,12 @@ export default {
         try {
           await this.uploadFile(item)
           item.status = 'done'
-        } catch {
+        } catch (error) {
           item.status = 'error'
+          item.errorMessage =
+            error.response?.data?.error ||
+            error.response?.data?.message ||
+            'Falha no envio'
         }
       }
 
