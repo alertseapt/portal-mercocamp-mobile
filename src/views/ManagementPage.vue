@@ -412,25 +412,33 @@
                 class="load-header"
                 :class="{ 'load-header-docar': load.status === 'DOCAR' }"
               >
-                <div class="load-title">
-                  <i class="fas fa-box"></i>
-                  <h3>CARGA {{ load.load_id }}</h3>
-                  <button
-                    class="btn-print-load"
-                    title="Imprimir folha de controle"
-                    :disabled="downloadingControlPdf"
-                    @click.stop="openControlPdf(load.load_id)"
-                  >
-                    <i class="fas fa-print"></i>
-                  </button>
-                  <button
-                    v-if="isAdmin"
-                    class="btn-delete-load"
-                    title="Excluir carga"
-                    @click.stop="deleteLoad(load.load_id)"
-                  >
-                    <i class="fas fa-times"></i>
-                  </button>
+                <div class="load-header-top">
+                  <div class="load-title">
+                    <i class="fas fa-box"></i>
+                    <h3>CARGA {{ load.load_id }}</h3>
+                    <span :class="['load-status-stat', getLoadStatusBadgeClass(load.status)]">
+                      <i class="fas fa-circle"></i>
+                      {{ getLoadStatusLabel(load.status) }}
+                    </span>
+                  </div>
+                  <div class="load-header-actions">
+                    <button
+                      class="btn-print-load"
+                      title="Imprimir folha de controle"
+                      :disabled="downloadingControlPdf"
+                      @click.stop="openControlPdf(load.load_id)"
+                    >
+                      <i class="fas fa-print"></i>
+                    </button>
+                    <button
+                      v-if="isAdmin"
+                      class="btn-delete-load"
+                      title="Excluir carga"
+                      @click.stop="deleteLoad(load.load_id)"
+                    >
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
                 </div>
                 <div class="load-info">
                   <span class="load-stat">
@@ -456,10 +464,6 @@
                   <span v-if="load.return === '1'" class="load-return-badge">
                     <i class="fas fa-undo"></i>
                     Devolução
-                  </span>
-                  <span :class="['load-status-stat', getLoadStatusBadgeClass(load.status)]">
-                    <i class="fas fa-circle"></i>
-                    {{ getLoadStatusLabel(load.status) }}
                   </span>
                 </div>
               </div>
@@ -825,25 +829,33 @@
                   'load-header-cancelled': load.status === 'CANCELADA',
                 }"
               >
-                <div class="load-title">
-                  <i class="fas fa-box"></i>
-                  <h3>CARGA {{ load.load_id }}</h3>
-                  <button
-                    class="btn-print-load"
-                    title="Imprimir folha de controle"
-                    :disabled="downloadingControlPdf"
-                    @click.stop="openControlPdf(load.load_id)"
-                  >
-                    <i class="fas fa-print"></i>
-                  </button>
-                  <button
-                    v-if="isAdmin"
-                    class="btn-delete-load"
-                    title="Excluir carga"
-                    @click.stop="deleteLoad(load.load_id)"
-                  >
-                    <i class="fas fa-times"></i>
-                  </button>
+                <div class="load-header-top">
+                  <div class="load-title">
+                    <i class="fas fa-box"></i>
+                    <h3>CARGA {{ load.load_id }}</h3>
+                    <span :class="['load-status-stat', getLoadStatusBadgeClass(load.status)]">
+                      <i class="fas fa-circle"></i>
+                      {{ getLoadStatusLabel(load.status) }}
+                    </span>
+                  </div>
+                  <div class="load-header-actions">
+                    <button
+                      class="btn-print-load"
+                      title="Imprimir folha de controle"
+                      :disabled="downloadingControlPdf"
+                      @click.stop="openControlPdf(load.load_id)"
+                    >
+                      <i class="fas fa-print"></i>
+                    </button>
+                    <button
+                      v-if="isAdmin"
+                      class="btn-delete-load"
+                      title="Excluir carga"
+                      @click.stop="deleteLoad(load.load_id)"
+                    >
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
                 </div>
                 <div class="load-info">
                   <span class="load-stat">
@@ -866,10 +878,6 @@
                   >
                     <i class="fas fa-building"></i>
                     CD: {{ getLoadStorageDisplay(load) }}
-                  </span>
-                  <span :class="['load-status-stat', getLoadStatusBadgeClass(load.status)]">
-                    <i class="fas fa-circle"></i>
-                    {{ getLoadStatusLabel(load.status) }}
                   </span>
                 </div>
               </div>
@@ -7854,9 +7862,24 @@ export default {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   padding: 20px 24px;
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-bottom: 3px solid #1e40af;
+}
+
+/* Linha 1 da faixa: número + status (esq) | botões imprimir/excluir (dir) */
+.load-header-top {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 3px solid #1e40af;
+  gap: 12px;
+  width: 100%;
+}
+.load-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 /* Cabeçalho de carga com status DOCAR - vermelho */
@@ -8009,6 +8032,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .load-title i {
@@ -8021,6 +8046,7 @@ export default {
   color: #fff;
   font-size: 20px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .btn-delete-load {
