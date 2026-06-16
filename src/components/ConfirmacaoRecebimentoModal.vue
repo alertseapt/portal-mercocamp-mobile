@@ -209,7 +209,10 @@
             <i class="fas fa-spinner fa-spin"></i> Carregando imagens...
           </div>
 
-          <div v-else-if="existingPhotos.length === 0" class="rcb-photo-empty">
+          <div
+            v-else-if="existingPhotos.length === 0 && currentQueueItems.length === 0"
+            class="rcb-photo-empty"
+          >
             <i class="fas fa-image"></i>
             <span>Nenhuma imagem nesta NF.</span>
           </div>
@@ -233,6 +236,33 @@
               <img :src="p.dataUrl" :alt="p.name" />
               <span class="rcb-photo-badge"><i class="fas fa-cloud"></i></span>
             </button>
+
+            <!-- Fotos desta NF em envio (fila em segundo plano) ou com erro -->
+            <button
+              v-for="q in currentQueueItems"
+              :key="q.id"
+              type="button"
+              class="rcb-photo-thumb"
+              :class="{ 'is-uploading': q.status !== 'erro', 'is-error': q.status === 'erro' }"
+              :title="q.status === 'erro' ? (q.error || 'Falha no envio — toque para tentar novamente') : 'Enviando...'"
+              @click="onQueueThumbClick(q)"
+            >
+              <img :src="q.dataUrl" :alt="q.fileName" />
+              <span
+                v-if="q.status === 'erro'"
+                class="rcb-photo-badge rcb-photo-badge--error"
+              >
+                <i class="fas fa-redo"></i>
+              </span>
+              <span v-else class="rcb-photo-badge rcb-photo-badge--uploading">
+                <i class="fas fa-spinner fa-spin"></i>
+              </span>
+            </button>
+          </div>
+
+          <div v-if="pendingUploadCount > 0" class="rcb-photo-uploading-note">
+            <i class="fas fa-spinner fa-spin"></i>
+            Enviando {{ pendingUploadCount }} imagem(ns) em segundo plano…
           </div>
 
           <input
@@ -248,7 +278,6 @@
           <button
             type="button"
             class="rcb-btn rcb-btn--cancel"
-            :disabled="uploadingPhotos"
             @click="closeImagens"
           >
             <i class="fas fa-arrow-left"></i>
@@ -257,11 +286,9 @@
           <button
             type="button"
             class="rcb-btn rcb-btn--confirm"
-            :disabled="uploadingPhotos"
             @click="triggerPhotoCapture"
           >
-            <i v-if="uploadingPhotos" class="fas fa-spinner fa-spin"></i>
-            <i v-else class="fas fa-camera"></i>
+            <i class="fas fa-camera"></i>
             Foto
           </button>
         </div>
@@ -329,6 +356,11 @@
 
 <script>
 import apiService from '../services/api.js'
+import { useSystemDialogStore } from '../stores/systemDialog.js'
+
+// Compressão no cliente antes do upload (acelera o envio e alivia o backend).
+const IMAGE_MAX_WIDTH = 1600
+const IMAGE_QUALITY = 0.8
 
 export default {
   name: 'ConfirmacaoRecebimentoModal',
@@ -356,9 +388,12 @@ export default {
 
       // Sub-modal de imagens
       showImagens: false,
-      uploadingPhotos: false,
       existingPhotos: [], // já enviadas (Drive): { id, name, dataUrl, uploadedBy, uploadedAt }
       loadingExisting: false,
+      // Fila de envio em segundo plano (não bloqueia a UI). Cada item:
+      // { id, scheduleId, fileName, base64, dataUrl, status: 'pending'|'enviando'|'erro', error }
+      uploadQueue: [],
+      processingQueue: false,
       viewer: null, // imagem em visualização: { id, dataUrl, name, uploadedBy, uploadedAt }
       deletingPhoto: false,
 
@@ -395,17 +430,28 @@ export default {
       const c = this.currentSchedule?.image_count
       return c === undefined ? null : c
     },
-    /** Bloqueia ações do modal principal enquanto há sub-modal/upload/gravação. */
+    /** Bloqueia ações do modal principal enquanto há sub-modal/gravação aberta. */
     busy() {
       return (
         this.showRessalva ||
         this.showImagens ||
-        this.uploadingPhotos ||
         this.savingRessalva ||
         this.deletingPhoto ||
         !!this.savingDecision ||
         this.showNaoAgendadoNotice
       )
+    },
+    /** Itens da fila de envio pertencentes à NF atualmente exibida. */
+    currentQueueItems() {
+      const id = this.currentSchedule?.id
+      if (id == null) return []
+      return this.uploadQueue.filter(q => String(q.scheduleId) === String(id))
+    },
+    /** Quantidade de imagens ainda sendo enviadas (qualquer NF da carga). */
+    pendingUploadCount() {
+      return this.uploadQueue.filter(
+        q => q.status === 'pending' || q.status === 'enviando'
+      ).length
     },
   },
   watch: {
@@ -485,8 +531,16 @@ export default {
       }
     },
 
-    close() {
+    async close() {
       if (this.busy) return
+      // Avisa se ainda há fotos sendo enviadas em segundo plano.
+      if (this.pendingUploadCount > 0) {
+        const ok = await useSystemDialogStore().showConfirm(
+          `Há ${this.pendingUploadCount} imagem(ns) sendo enviada(s). Se fechar agora, o acompanhamento desses envios será interrompido. Deseja fechar mesmo assim?`,
+          'Envios em andamento'
+        )
+        if (!ok) return
+      }
       this.$emit('close')
     },
 
@@ -557,14 +611,6 @@ export default {
       } catch (_) {
         s.image_count = 0
       }
-    },
-
-    /** Recalcula a contagem de imagens da NF atual (após enviar/apagar). */
-    async refreshImageCount() {
-      const s = this.currentSchedule
-      if (!s) return
-      delete s.image_count
-      await this.ensureImageCount()
     },
 
     // ---------------------------------------------------------------------
@@ -654,13 +700,15 @@ export default {
       this.fetchExistingImages()
     },
 
-    /** "Voltar" do modal de imagens: fecha e confere/atualiza a contagem. */
+    /** "Voltar" do modal de imagens: fecha (envios em voo seguem em segundo plano). */
     closeImagens() {
-      if (this.uploadingPhotos || this.deletingPhoto) return
+      if (this.deletingPhoto) return
       this.showImagens = false
       this.existingPhotos = []
       this.viewer = null
-      this.refreshImageCount()
+      // Não recarrega a contagem aqui: ela é mantida localmente pelos envios
+      // (onUploadSuccess) e exclusões (deleteViewed), evitando divergir dos
+      // uploads ainda em andamento.
     },
 
     /** Carrega as imagens já enviadas do agendamento (Drive) para miniaturas. */
@@ -687,51 +735,163 @@ export default {
     },
 
     triggerPhotoCapture() {
-      if (this.uploadingPhotos) return
       this.$refs.photoInput && this.$refs.photoInput.click()
     },
 
-    onPhotoCaptured(event) {
+    /**
+     * Captura uma foto e a coloca na fila de envio em segundo plano. NÃO bloqueia
+     * a interface: o usuário pode tirar outra foto ou avançar de NF enquanto o
+     * upload acontece. A foto é comprimida no cliente antes de entrar na fila.
+     */
+    async onPhotoCaptured(event) {
       const file = event.target.files && event.target.files[0]
       event.target.value = '' // permite recapturar o mesmo arquivo
       if (!file) return
-      const reader = new FileReader()
-      reader.onload = () => {
-        this.uploadPhoto(file, String(reader.result || ''))
+      const schedule = this.currentSchedule
+      if (!schedule) return
+      const scheduleId = schedule.id // fixa a NF da foto (mesmo se o usuário avançar)
+
+      const dataUrl = await this.compressImageToDataUrl(file)
+      const base64 = String(dataUrl).split(',')[1] || ''
+      if (!base64) {
+        useSystemDialogStore().showAlert(
+          'Não foi possível preparar a imagem. Tente novamente.',
+          'Erro'
+        )
+        return
       }
-      reader.readAsDataURL(file)
+
+      const safeEmail = String(this.currentUserEmail()).replace(/[^\w.@-]/g, '_')
+      const fileName = `${safeEmail}_${this.fileStamp()}.jpg`
+      this.uploadQueue.push({
+        id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        scheduleId,
+        fileName,
+        base64,
+        dataUrl, // miniatura otimista (já comprimida)
+        status: 'pending',
+        error: null,
+      })
+      this.processUploadQueue() // dispara em background (sem await)
     },
 
     /**
-     * Envia a foto recém-capturada imediatamente, identificando-a com o e-mail
-     * do usuário e a data/hora (no nome do arquivo; o servidor também registra
-     * autor e timestamp nas propriedades da imagem).
+     * Comprime a imagem via canvas (redimensiona para IMAGE_MAX_WIDTH e
+     * recodifica em JPEG IMAGE_QUALITY) e devolve o data URL resultante.
+     * Em caso de falha (ou arquivo não-imagem), devolve o data URL original.
      */
-    async uploadPhoto(file, dataUrl) {
-      const schedule = this.currentSchedule
-      if (!schedule) return
-      const base64 = String(dataUrl).split(',')[1] || ''
-      if (!base64) return
-      this.uploadingPhotos = true
+    compressImageToDataUrl(file) {
+      return new Promise(resolve => {
+        const readOriginal = () => {
+          const r = new FileReader()
+          r.onload = () => resolve(String(r.result || ''))
+          r.onerror = () => resolve('')
+          r.readAsDataURL(file)
+        }
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+          readOriginal()
+          return
+        }
+        const img = new Image()
+        const objectUrl = URL.createObjectURL(file)
+        img.onload = () => {
+          let { width, height } = img
+          if (width > IMAGE_MAX_WIDTH) {
+            height = Math.round((height * IMAGE_MAX_WIDTH) / width)
+            width = IMAGE_MAX_WIDTH
+          }
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+          URL.revokeObjectURL(objectUrl)
+          try {
+            resolve(canvas.toDataURL('image/jpeg', IMAGE_QUALITY))
+          } catch (_) {
+            readOriginal()
+          }
+        }
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl)
+          readOriginal()
+        }
+        img.src = objectUrl
+      })
+    },
+
+    /**
+     * Processa a fila de envio sequencialmente em segundo plano. É reentrante:
+     * itens adicionados durante o loop também são enviados. Cada item carrega o
+     * seu próprio scheduleId, então acerta a NF correta mesmo após avançar.
+     */
+    async processUploadQueue() {
+      if (this.processingQueue) return
+      this.processingQueue = true
       try {
-        const email = this.currentUserEmail()
-        const stamp = this.fileStamp()
-        const ext =
-          file.name && file.name.includes('.')
-            ? file.name.split('.').pop().toLowerCase()
-            : 'jpg'
-        const safeEmail = String(email).replace(/[^\w.@-]/g, '_')
-        const fileName = `${safeEmail}_${stamp}.${ext}`
-        await apiService.post(
-          `/schedules/${encodeURIComponent(schedule.id)}/images`,
-          { fileName, base64 }
-        )
-        await this.fetchExistingImages() // atualiza miniaturas e contagem
-      } catch (err) {
-        alert(err?.message || 'Erro ao enviar imagem. Tente novamente.')
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const item = this.uploadQueue.find(q => q.status === 'pending')
+          if (!item) break
+          item.status = 'enviando'
+          try {
+            const resp = await apiService.post(
+              `/schedules/${encodeURIComponent(item.scheduleId)}/images`,
+              { fileName: item.fileName, base64: item.base64 }
+            )
+            const data = typeof resp === 'string' ? JSON.parse(resp) : resp
+            this.onUploadSuccess(item, data)
+          } catch (err) {
+            item.status = 'erro'
+            item.error = err?.message || 'Falha no envio'
+          }
+        }
       } finally {
-        this.uploadingPhotos = false
+        this.processingQueue = false
       }
+    },
+
+    /** Conclui um item enviado: remove da fila, atualiza contagem e miniatura. */
+    onUploadSuccess(item, data) {
+      const i = this.uploadQueue.findIndex(q => q.id === item.id)
+      if (i !== -1) this.uploadQueue.splice(i, 1)
+
+      const sched = this.schedules.find(
+        s => String(s.id) === String(item.scheduleId)
+      )
+      if (sched) {
+        const cur = typeof sched.image_count === 'number' ? sched.image_count : 0
+        sched.image_count = cur + 1
+      }
+
+      // Se a NF dessa foto está aberta no sub-modal, mostra a miniatura como
+      // "enviada" (nuvem) sem precisar rebaixar tudo do Drive.
+      const f = data && data.file
+      if (
+        this.showImagens &&
+        this.currentSchedule &&
+        String(this.currentSchedule.id) === String(item.scheduleId)
+      ) {
+        this.existingPhotos.push({
+          id: (f && f.id) || item.id,
+          name: (f && f.name) || item.fileName,
+          dataUrl: item.dataUrl,
+          uploadedBy: (f && f.uploadedBy) || this.currentUserEmail(),
+          uploadedAt: (f && f.uploadedAt) || new Date().toISOString(),
+        })
+      }
+    },
+
+    /** Toque numa miniatura da fila: reenvia quando está em erro. */
+    onQueueThumbClick(q) {
+      if (q && q.status === 'erro') this.retryQueueItem(q)
+    },
+
+    /** Recoloca um item com erro na fila para nova tentativa. */
+    retryQueueItem(q) {
+      if (!q || q.status !== 'erro') return
+      q.status = 'pending'
+      q.error = null
+      this.processUploadQueue()
     },
 
     openViewer(item) {
@@ -1253,6 +1413,30 @@ export default {
   background: rgba(22, 163, 74, 0.9);
   color: #fff;
   font-size: 0.6rem;
+}
+.rcb-photo-badge--uploading {
+  background: rgba(37, 99, 235, 0.92);
+}
+.rcb-photo-badge--error {
+  background: rgba(220, 38, 38, 0.95);
+}
+/* Miniaturas ainda em envio: levemente esmaecidas. */
+.rcb-photo-thumb.is-uploading img {
+  opacity: 0.6;
+}
+.rcb-photo-thumb.is-error {
+  border-color: #fca5a5;
+}
+.rcb-photo-thumb.is-error img {
+  opacity: 0.55;
+}
+.rcb-photo-uploading-note {
+  margin-top: 8px;
+  color: #2563eb;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Visualizador de imagem em tela cheia */
