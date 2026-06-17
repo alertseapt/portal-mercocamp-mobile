@@ -148,7 +148,16 @@
               <td class="col-numero">{{ row.nfeDisplay }}</td>
               <td class="col-agendamento">
                 <span
-                  v-if="row.scheduleLabel === 'Não encontrado!'"
+                  v-if="row.scheduledInOtherStorage"
+                  class="badge badge-other-storage"
+                  :title="
+                    'Agendada em: ' +
+                    (formatOtherStorageNames(row.otherSchedules) || 'outro estoque')
+                  "
+                  ><i class="fas fa-exclamation-triangle"></i> Outro estoque</span
+                >
+                <span
+                  v-else-if="row.scheduleLabel === 'Não encontrado!'"
                   class="badge badge-not-found"
                   >{{ row.scheduleLabel }}</span
                 >
@@ -277,6 +286,46 @@
             >
               ID {{ s.id }} – Data: {{ formatDateDDMMYY(s.date) }} – Status:
               {{ s.status }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: NF agendada em um estoque diferente do selecionado -->
+    <div
+      v-if="showOutroEstoqueModal"
+      class="modal-overlay"
+      @click="keepOutroEstoqueRow"
+    >
+      <div class="modal-content outro-estoque-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-exclamation-triangle"></i> NF agendada em outro estoque
+          </h3>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">
+            Esta nota fiscal não possui agendamento no estoque selecionado
+            (<strong>{{ selectedEstoque ? selectedEstoque.name : '—' }}</strong>),
+            mas está agendada em
+            <strong>{{ outroEstoqueNomes || 'outro estoque' }}</strong>.
+          </p>
+          <p class="mb-2">O que deseja fazer com esta NF?</p>
+          <div class="outro-estoque-actions">
+            <button
+              type="button"
+              class="btn btn-outline-danger"
+              @click="removeOutroEstoqueRow"
+            >
+              <i class="fas fa-trash"></i> Retirar da lista
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="keepOutroEstoqueRow"
+            >
+              <i class="fas fa-check"></i> Manter na lista
             </button>
           </div>
         </div>
@@ -541,9 +590,9 @@
                     <i class="fas fa-truck"></i>
                     <span>{{ carga.transport_company_name || '—' }}</span>
                   </div>
-                  <div v-if="carga.obs" class="carga-info-row carga-obs-row">
+                  <div class="carga-info-row carga-obs-row">
                     <i class="fas fa-comment-alt"></i>
-                    <span class="carga-obs-text">{{ carga.obs }}</span>
+                    <span class="carga-obs-text">{{ carga.obs || '—' }}</span>
                   </div>
                 </div>
               </div>
@@ -579,6 +628,10 @@ export default {
       schedulePickList: [],
       integrationPickRowId: null,
       integrationPickList: [],
+      // Modal "NF agendada em outro estoque"
+      showOutroEstoqueModal: false,
+      outroEstoqueRow: null,
+      outroEstoqueNomes: '',
       showEmConferenciaModal: false,
       emConferenciaList: [],
       emConferenciaRunning: false,
@@ -827,6 +880,9 @@ export default {
 
       const schedules = data.schedules || []
       const integration = data.integration || {}
+      // Agendamentos da MESMA nota em OUTRO estoque (preenchido pelo backend só
+      // quando não há agendamento no estoque selecionado).
+      const otherSchedules = data.other_schedules || []
 
       let scheduleLabel = 'Não encontrado!'
       let corpemLabel = 'Não encontrado!'
@@ -866,6 +922,10 @@ export default {
       const needsCorpemAttention =
         scheduleFound && !integrationFound && !hasCorpemPayload
 
+      // NF sem agendamento no estoque selecionado, porém agendada em outro estoque.
+      const scheduledInOtherStorage =
+        schedules.length === 0 && otherSchedules.length > 0
+
       const row = {
         id: rowId,
         checked: false,
@@ -878,8 +938,10 @@ export default {
         chosenSchedule,
         chosenIntegration,
         needsCorpemAttention,
+        otherSchedules,
+        scheduledInOtherStorage,
       }
-      return { row, openSchedulePickModal }
+      return { row, openSchedulePickModal, scheduledInOtherStorage }
     },
     async consultar() {
       if (!this.canConsultar || this.loadingConsulta) return
@@ -904,16 +966,21 @@ export default {
       this.loadingConsulta = true
       const rowId = this.nextId++
       try {
-        const { row, openSchedulePickModal } = await this.fetchNfeStatusRow(
-          client,
-          nfeKey,
-          { rowId, chooseFirstIfMultiple: false }
-        )
+        const { row, openSchedulePickModal, scheduledInOtherStorage } =
+          await this.fetchNfeStatusRow(client, nfeKey, {
+            rowId,
+            chooseFirstIfMultiple: false,
+          })
         this.results.unshift(row)
         if (openSchedulePickModal) {
           this.schedulePickRowId = rowId
           this.schedulePickList = row.schedules
           this.showSchedulePickModal = true
+        } else if (scheduledInOtherStorage) {
+          // A NF está agendada em outro estoque: usuário decide manter/retirar.
+          this.outroEstoqueRow = row
+          this.outroEstoqueNomes = this.formatOtherStorageNames(row.otherSchedules)
+          this.showOutroEstoqueModal = true
         }
         this.nfeKeyInput = ''
       } catch (err) {
@@ -984,16 +1051,22 @@ export default {
           return
         }
         const added = []
+        let outroEstoqueCount = 0
         for (let i = 0; i < chaves.length; i++) {
           this.importProgress = `${i + 1}/${chaves.length}`
           const rowId = this.nextId++
           try {
-            const { row } = await this.fetchNfeStatusRow(client, chaves[i], {
-              rowId,
-              chooseFirstIfMultiple: true,
-            })
+            const { row, scheduledInOtherStorage } =
+              await this.fetchNfeStatusRow(client, chaves[i], {
+                rowId,
+                chooseFirstIfMultiple: true,
+              })
             this.results.unshift(row)
             added.push(row.nfeDisplay)
+            // Na importação em lote não abrimos um modal por NF: as notas
+            // agendadas em outro estoque entram na lista marcadas (badge "Outro
+            // estoque") e são contabilizadas para o resumo abaixo.
+            if (scheduledInOtherStorage) outroEstoqueCount++
           } catch (err) {
             console.warn('Importar chave falhou:', chaves[i], err.message)
             this.$emit(
@@ -1008,6 +1081,13 @@ export default {
           `Importação concluída: ${added.length} de ${chaves.length} chave(s) listadas. Use "Em conferência" para alterar status e integrar.`,
           'success'
         )
+        if (outroEstoqueCount > 0) {
+          this.$emit(
+            'notification',
+            `${outroEstoqueCount} nota(s) estão agendadas em outro estoque (marcadas como "Outro estoque" na lista). Revise se deseja mantê-las ou removê-las.`,
+            'warning'
+          )
+        }
       } catch (err) {
         console.error('Erro ao importar arquivo:', err)
         this.$emit(
@@ -1045,6 +1125,31 @@ export default {
       this.showIntegrationPickModal = false
       this.integrationPickRowId = null
       this.integrationPickList = []
+    },
+    /** Junta os nomes (distintos) dos estoques onde a NF está agendada. */
+    formatOtherStorageNames(list) {
+      const nomes = [
+        ...new Set(
+          (list || [])
+            .map(s => String(s.client_name || s.client || '').trim())
+            .filter(Boolean)
+        ),
+      ]
+      return nomes.join(', ')
+    },
+    /** "Manter na lista": mantém a NF e fecha o aviso. */
+    keepOutroEstoqueRow() {
+      this.closeOutroEstoqueModal()
+    },
+    /** "Retirar da lista": remove a NF da listagem e fecha o aviso. */
+    removeOutroEstoqueRow() {
+      if (this.outroEstoqueRow) this.removeRow(this.outroEstoqueRow)
+      this.closeOutroEstoqueModal()
+    },
+    closeOutroEstoqueModal() {
+      this.showOutroEstoqueModal = false
+      this.outroEstoqueRow = null
+      this.outroEstoqueNomes = ''
     },
     toggleSelectAll() {
       const next = !this.allChecked
@@ -1611,6 +1716,7 @@ export default {
     getRowStatusClass(row) {
       const scheduleFound = row.scheduleLabel !== 'Não encontrado!'
       const integrationFound = row.corpemLabel !== 'Não encontrado!'
+      if (row.scheduledInOtherStorage) return 'row-status-other-storage'
       if (row.needsCorpemAttention) return 'row-status-missing-corpem'
       if (!scheduleFound && !integrationFound) return 'row-status-none'
       if (scheduleFound && !integrationFound)
@@ -1828,6 +1934,10 @@ export default {
 .result-row.row-status-none {
   background-color: #fff;
 }
+/* NF agendada em um estoque diferente do selecionado */
+.result-row.row-status-other-storage {
+  background-color: #feebc8;
+}
 
 /* Agendamento encontrado mas sem integração WJT e sem payload CorpEM (Pronta Integração) – fundo vermelho piscante */
 .result-row.row-status-missing-corpem {
@@ -1898,6 +2008,18 @@ export default {
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-size: 0.85rem;
+}
+
+.badge-other-storage {
+  background: #dd6b20;
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.badge-other-storage i {
+  margin-right: 4px;
 }
 
 .btn-remove {
@@ -2025,6 +2147,25 @@ export default {
 .pick-modal .pick-item {
   text-align: left;
   justify-content: flex-start;
+}
+
+.outro-estoque-modal {
+  max-width: 480px;
+}
+.outro-estoque-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.btn-outline-danger {
+  background: transparent;
+  border: 1px solid #e53e3e;
+  color: #e53e3e;
+}
+.btn-outline-danger:hover {
+  background: #e53e3e;
+  color: #fff;
 }
 
 .em-conferencia-modal {
