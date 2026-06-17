@@ -1200,7 +1200,15 @@ export default {
         Volumes: this.getVolumeCount(),
         'Qtd. Produtos': this.nfeData.qt_prod,
         'Valor Total': this.getTotalValue(),
+        Crossdocking: this.getCrossdockInfo(),
       }
+    },
+
+    /** "Sim"/"Não" conforme o agendamento esteja marcado como crossdocking. */
+    getCrossdockInfo() {
+      const v = this.nfeData?.crossdock
+      const isCrossdock = v === 1 || v === '1' || v === true
+      return isCrossdock ? 'Sim' : 'Não'
     },
 
     getBookingClientInfo() {
