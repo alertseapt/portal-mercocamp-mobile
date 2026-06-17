@@ -1568,12 +1568,12 @@
               </p>
               <div class="wizard-presenter-form">
                 <div class="form-group">
-                  <label>Número de Identidade (RG)</label>
+                  <label>CPF</label>
                   <input
                     v-model="loadWizardData.presenterRg"
                     type="text"
-                    maxlength="13"
-                    placeholder="Ex: 1234567890123"
+                    maxlength="11"
+                    placeholder="Ex: 12345678901"
                     class="form-input"
                     @input="handleWizardPresenterRgInput"
                   />
@@ -1950,16 +1950,16 @@
               <h4><i class="fas fa-id-card"></i> Apresentador</h4>
               <div class="wizard-presenter-form">
                 <div class="form-group">
-                  <label>RG</label>
+                  <label>CPF</label>
                   <div class="presenter-rg-wrapper">
                     <input
                       ref="criarCargaPresenterRg"
                       v-model="criarCargaData.presenterRg"
                       type="text"
-                      maxlength="13"
-                      placeholder="Ex: 1234567890123"
+                      maxlength="11"
+                      placeholder="Ex: 12345678901"
                       class="form-input"
-                      @input="criarCargaData.presenterRg = $event.target.value.replace(/\D/g, '').substring(0, 13); criarCargaPresenterNotFound = false"
+                      @input="criarCargaData.presenterRg = $event.target.value.replace(/\D/g, '').substring(0, 11); criarCargaPresenterNotFound = false"
                       @keyup.enter="searchCriarCargaPresenter"
                     />
                     <button
@@ -1967,7 +1967,7 @@
                       class="presenter-rg-search-btn"
                       :disabled="!criarCargaData.presenterRg || criarCargaPresenterSearching"
                       @click="searchCriarCargaPresenter"
-                      title="Buscar apresentador pelo RG"
+                      title="Buscar apresentador pelo CPF"
                     >
                       <i :class="criarCargaPresenterSearching ? 'fas fa-spinner fa-spin' : 'fas fa-search'"></i>
                     </button>
