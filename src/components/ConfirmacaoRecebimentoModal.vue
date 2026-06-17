@@ -351,6 +351,138 @@
         </div>
       </div>
     </div>
+
+    <!-- Pergunta inicial: receber todas as notas sem ressalva? -->
+    <div v-if="showInitialQuestion" class="rcb-sub-overlay">
+      <div class="rcb-sub-card rcb-notice-card">
+        <div class="rcb-sub-header">
+          <h3>Conferência da carga {{ loadId }}</h3>
+        </div>
+        <div class="rcb-sub-body">
+          <div v-if="bulkReceiving" class="rcb-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Recebendo todas as notas... {{ bulkProgress }}</span>
+          </div>
+          <div v-else-if="bulkError" class="rcb-notice rcb-notice--error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>{{ bulkError }}</p>
+          </div>
+          <div v-else class="rcb-notice rcb-notice--question">
+            <i class="fas fa-clipboard-check"></i>
+            <div>
+              <p>
+                Você vai receber
+                <strong>todas as {{ scheduledSchedules.length }} nota(s)</strong>
+                desta carga <strong>sem ressalva</strong> e sem imagens?
+              </p>
+              <p
+                v-if="naoAgendadoSchedules.length > 0"
+                class="rcb-notice-hint"
+              >
+                As {{ naoAgendadoSchedules.length }} nota(s) "Não agendado" serão
+                perguntadas em seguida.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="!bulkReceiving"
+          class="rcb-sub-footer"
+          :class="{ 'rcb-sub-footer--single': bulkError }"
+        >
+          <template v-if="bulkError">
+            <button
+              type="button"
+              class="rcb-btn rcb-btn--confirm"
+              @click="proceedNoteByNote"
+            >
+              <i class="fas fa-list-ol"></i>
+              Conferir nota a nota
+            </button>
+          </template>
+          <template v-else>
+            <button
+              type="button"
+              class="rcb-btn rcb-btn--cancel"
+              @click="answerReceiveAll(false)"
+            >
+              <i class="fas fa-list-ol"></i>
+              Não, conferir nota a nota
+            </button>
+            <button
+              type="button"
+              class="rcb-btn rcb-btn--receive"
+              @click="answerReceiveAll(true)"
+            >
+              <i class="fas fa-check-circle"></i>
+              Sim, receber todas
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pergunta à parte: receber também as notas "Não agendado"? -->
+    <div v-if="showNaoAgendadoQuestion" class="rcb-sub-overlay">
+      <div class="rcb-sub-card rcb-notice-card">
+        <div class="rcb-sub-header">
+          <h3>Notas "Não agendado"</h3>
+        </div>
+        <div class="rcb-sub-body">
+          <div v-if="bulkReceiving" class="rcb-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Recebendo as notas "Não agendado"... {{ bulkProgress }}</span>
+          </div>
+          <div v-else-if="bulkError" class="rcb-notice rcb-notice--error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>{{ bulkError }}</p>
+          </div>
+          <div v-else class="rcb-notice">
+            <i class="fas fa-info-circle"></i>
+            <p>
+              Esta carga tem
+              <strong>{{ naoAgendadoSchedules.length }} nota(s)</strong> com status
+              <strong>"Não agendado"</strong>. Deseja recebê-las também, sem
+              ressalva?
+            </p>
+          </div>
+        </div>
+        <div
+          v-if="!bulkReceiving"
+          class="rcb-sub-footer"
+          :class="{ 'rcb-sub-footer--single': bulkError }"
+        >
+          <template v-if="bulkError">
+            <button
+              type="button"
+              class="rcb-btn rcb-btn--confirm"
+              @click="proceedNoteByNoteNaoAgendado"
+            >
+              <i class="fas fa-list-ol"></i>
+              Conferir nota a nota
+            </button>
+          </template>
+          <template v-else>
+            <button
+              type="button"
+              class="rcb-btn rcb-btn--cancel"
+              @click="answerReceiveNaoAgendado(false)"
+            >
+              <i class="fas fa-list-ol"></i>
+              Não, conferir nota a nota
+            </button>
+            <button
+              type="button"
+              class="rcb-btn rcb-btn--receive"
+              @click="answerReceiveNaoAgendado(true)"
+            >
+              <i class="fas fa-check-circle"></i>
+              Sim, receber também
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -402,6 +534,14 @@ export default {
       // Decisão da conferência em gravação: 'Recebido' | 'Recusado' | null
       savingDecision: null,
 
+      // Pergunta inicial: receber todas as notas agendadas sem ressalva?
+      showInitialQuestion: false,
+      // Pergunta à parte: receber também as notas "Não agendado"?
+      showNaoAgendadoQuestion: false,
+      bulkReceiving: false, // gravando "Recebido" em lote
+      bulkProgress: '', // "x/y" durante o recebimento em lote
+      bulkError: '', // mensagem quando alguma nota falha no recebimento em lote
+
       // Aviso (informativo) na transição para as notas "Não agendado"
       showNaoAgendadoNotice: false,
       naoAgendadoStartIndex: -1, // índice da 1ª nota "Não agendado" (-1 se não houver)
@@ -445,8 +585,19 @@ export default {
         this.savingRessalva ||
         this.deletingPhoto ||
         !!this.savingDecision ||
-        this.showNaoAgendadoNotice
+        this.showNaoAgendadoNotice ||
+        this.showInitialQuestion ||
+        this.showNaoAgendadoQuestion ||
+        this.bulkReceiving
       )
+    },
+    /** Notas agendadas (status diferente de "Não agendado"). */
+    scheduledSchedules() {
+      return this.schedules.filter(s => !this.isNaoAgendado(s))
+    },
+    /** Notas com status "Não agendado". */
+    naoAgendadoSchedules() {
+      return this.schedules.filter(s => this.isNaoAgendado(s))
     },
     /** Itens da fila app-level (store) pertencentes à NF atualmente exibida. */
     currentQueueItems() {
@@ -526,6 +677,9 @@ export default {
     async fetchSchedules() {
       this.loading = true
       this.error = null
+      this.showInitialQuestion = false
+      this.showNaoAgendadoQuestion = false
+      this.bulkError = ''
       try {
         const resp = await apiService.get(
           `/loads/${encodeURIComponent(this.loadId)}/schedules`
@@ -540,6 +694,13 @@ export default {
           this.isNaoAgendado(s)
         )
         this.naoAgendadoNoticeShown = false
+        // Antes de percorrer nota a nota, pergunta se o usuário receberá todas as
+        // notas sem ressalva. As notas "Não agendado" são perguntadas à parte.
+        if (this.scheduledSchedules.length > 0) {
+          this.showInitialQuestion = true
+        } else if (this.naoAgendadoSchedules.length > 0) {
+          this.showNaoAgendadoQuestion = true
+        }
         this.ensureImageCount()
       } catch (err) {
         this.error =
@@ -601,6 +762,104 @@ export default {
       } finally {
         this.savingDecision = null
       }
+    },
+
+    // ---------------------------------------------------------------------
+    // Perguntas iniciais: receber todas as notas sem ressalva?
+    // (notas agendadas primeiro; notas "Não agendado" são perguntadas à parte)
+    // ---------------------------------------------------------------------
+    /** Resposta da 1ª pergunta (notas agendadas). true = recebe todas; false = nota a nota. */
+    answerReceiveAll(yes) {
+      if (this.bulkReceiving) return
+      if (yes) this.receiveScheduledThenAskNaoAgendado()
+      else this.proceedNoteByNote()
+    },
+
+    /** Resposta da pergunta à parte (notas "Não agendado"). */
+    answerReceiveNaoAgendado(yes) {
+      if (this.bulkReceiving) return
+      if (yes) this.receiveNaoAgendado()
+      else this.proceedNoteByNoteNaoAgendado()
+    },
+
+    /** Fecha as perguntas e segue para a conferência nota a nota (todas as notas). */
+    proceedNoteByNote() {
+      this.bulkError = ''
+      this.showInitialQuestion = false
+      this.showNaoAgendadoQuestion = false
+    },
+
+    /** Fecha as perguntas e vai direto para as notas "Não agendado" nota a nota. */
+    proceedNoteByNoteNaoAgendado() {
+      this.bulkError = ''
+      this.showInitialQuestion = false
+      this.showNaoAgendadoQuestion = false
+      this.naoAgendadoNoticeShown = true // já avisamos via pergunta
+      if (this.naoAgendadoStartIndex > 0) {
+        this.currentIndex = this.naoAgendadoStartIndex
+      }
+    },
+
+    /**
+     * Marca uma lista de notas como "Recebido" (mesmo efeito de clicar "Recebido"
+     * em cada uma), gravando no histórico. Retorna { okCount, failures }.
+     */
+    async bulkReceive(list) {
+      this.bulkReceiving = true
+      this.bulkError = ''
+      this.bulkProgress = `0/${list.length}`
+      let okCount = 0
+      const failures = []
+      try {
+        for (let i = 0; i < list.length; i++) {
+          const schedule = list[i]
+          try {
+            const resp = await apiService.post(
+              `/schedules/${encodeURIComponent(schedule.id)}/conference`,
+              { decision: 'Recebido' }
+            )
+            const data = typeof resp === 'string' ? JSON.parse(resp) : resp
+            if (data && data.status) schedule.status = data.status
+            okCount++
+          } catch (_) {
+            failures.push(schedule.number || schedule.id)
+          }
+          this.bulkProgress = `${i + 1}/${list.length}`
+        }
+      } finally {
+        this.bulkReceiving = false
+      }
+      return { okCount, failures }
+    },
+
+    /** "Sim" na 1ª pergunta: recebe as notas agendadas e então decide sobre as "Não agendado". */
+    async receiveScheduledThenAskNaoAgendado() {
+      if (this.bulkReceiving) return
+      const list = this.scheduledSchedules
+      const { okCount, failures } = await this.bulkReceive(list)
+      if (failures.length > 0) {
+        this.bulkError = `${okCount} de ${list.length} nota(s) recebida(s). Falha em: ${failures.join(', ')}. Confira as restantes nota a nota.`
+        return
+      }
+      this.showInitialQuestion = false
+      if (this.naoAgendadoSchedules.length > 0) {
+        this.showNaoAgendadoQuestion = true // pergunta à parte sobre as "Não agendado"
+      } else {
+        this.$emit('close')
+      }
+    },
+
+    /** "Sim" na pergunta à parte: recebe também as notas "Não agendado" e encerra. */
+    async receiveNaoAgendado() {
+      if (this.bulkReceiving) return
+      const list = this.naoAgendadoSchedules
+      const { okCount, failures } = await this.bulkReceive(list)
+      if (failures.length > 0) {
+        this.bulkError = `${okCount} de ${list.length} nota(s) "Não agendado" recebida(s). Falha em: ${failures.join(', ')}. Confira as restantes nota a nota.`
+        return
+      }
+      this.showNaoAgendadoQuestion = false
+      this.$emit('close')
     },
 
     // ---------------------------------------------------------------------
@@ -1250,6 +1509,17 @@ export default {
   font-size: 1.05rem;
   color: #1e293b;
   line-height: 1.4;
+}
+.rcb-notice--error i {
+  color: #dc2626;
+}
+.rcb-notice--error p {
+  color: #b91c1c;
+}
+.rcb-notice-hint {
+  margin-top: 6px;
+  font-size: 0.9rem !important;
+  color: #64748b !important;
 }
 .rcb-sub-header {
   padding: 16px 20px;
