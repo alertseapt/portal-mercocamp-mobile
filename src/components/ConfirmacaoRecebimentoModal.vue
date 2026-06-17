@@ -247,7 +247,7 @@
               :title="q.status === 'erro' ? (q.error || 'Falha no envio — toque para tentar novamente') : 'Enviando...'"
               @click="onQueueThumbClick(q)"
             >
-              <img :src="q.dataUrl" :alt="q.fileName" />
+              <img :src="q.thumbUrl" :alt="q.fileName" />
               <span
                 v-if="q.status === 'erro'"
                 class="rcb-photo-badge rcb-photo-badge--error"
@@ -260,9 +260,9 @@
             </button>
           </div>
 
-          <div v-if="pendingUploadCount > 0" class="rcb-photo-uploading-note">
+          <div v-if="currentUploadingCount > 0" class="rcb-photo-uploading-note">
             <i class="fas fa-spinner fa-spin"></i>
-            Enviando {{ pendingUploadCount }} imagem(ns) em segundo plano…
+            Enviando {{ currentUploadingCount }} imagem(ns) em segundo plano…
           </div>
 
           <input
@@ -357,10 +357,14 @@
 <script>
 import apiService from '../services/api.js'
 import { useSystemDialogStore } from '../stores/systemDialog.js'
+import { useUploadQueueStore } from '../stores/uploadQueue.js'
 
 // Compressão no cliente antes do upload (acelera o envio e alivia o backend).
 const IMAGE_MAX_WIDTH = 1600
 const IMAGE_QUALITY = 0.8
+// Miniatura leve para a fila/grade (mantém o estado reativo pequeno).
+const THUMB_MAX_WIDTH = 256
+const THUMB_QUALITY = 0.7
 
 export default {
   name: 'ConfirmacaoRecebimentoModal',
@@ -390,12 +394,10 @@ export default {
       showImagens: false,
       existingPhotos: [], // já enviadas (Drive): { id, name, dataUrl, uploadedBy, uploadedAt }
       loadingExisting: false,
-      // Fila de envio em segundo plano (não bloqueia a UI). Cada item:
-      // { id, scheduleId, fileName, base64, dataUrl, status: 'pending'|'enviando'|'erro', error }
-      uploadQueue: [],
-      processingQueue: false,
       viewer: null, // imagem em visualização: { id, dataUrl, name, uploadedBy, uploadedAt }
       deletingPhoto: false,
+      // Unsubscribe do ouvinte de conclusão da fila app-level (store uploadQueue).
+      unsubscribeUploadCompleted: null,
 
       // Decisão da conferência em gravação: 'Recebido' | 'Recusado' | null
       savingDecision: null,
@@ -425,10 +427,15 @@ export default {
         .map(s => s.trim())
         .filter(Boolean).length
     },
-    /** Quantidade de imagens da NF atual; null = ainda carregando a contagem. */
+    /**
+     * Quantidade de imagens da NF atual (já no Drive + as em voo na fila);
+     * null = ainda carregando a contagem do servidor e sem itens na fila.
+     */
     imageCount() {
       const c = this.currentSchedule?.image_count
-      return c === undefined ? null : c
+      const inFlight = this.currentQueueItems.length
+      if (c === undefined) return inFlight > 0 ? inFlight : null
+      return c + inFlight
     },
     /** Bloqueia ações do modal principal enquanto há sub-modal/gravação aberta. */
     busy() {
@@ -441,15 +448,15 @@ export default {
         this.showNaoAgendadoNotice
       )
     },
-    /** Itens da fila de envio pertencentes à NF atualmente exibida. */
+    /** Itens da fila app-level (store) pertencentes à NF atualmente exibida. */
     currentQueueItems() {
       const id = this.currentSchedule?.id
       if (id == null) return []
-      return this.uploadQueue.filter(q => String(q.scheduleId) === String(id))
+      return useUploadQueueStore().itemsForSchedule(id)
     },
-    /** Quantidade de imagens ainda sendo enviadas (qualquer NF da carga). */
-    pendingUploadCount() {
-      return this.uploadQueue.filter(
+    /** Imagens da NF atual ainda sendo enviadas (pendente/enviando). */
+    currentUploadingCount() {
+      return this.currentQueueItems.filter(
         q => q.status === 'pending' || q.status === 'enviando'
       ).length
     },
@@ -461,6 +468,17 @@ export default {
   },
   mounted() {
     this.fetchSchedules()
+    // A fila vive no store app-level: ouve as conclusões para refletir contagem
+    // e miniatura sem rebaixar tudo do Drive.
+    this.unsubscribeUploadCompleted = useUploadQueueStore().onCompleted(
+      this.handleUploadCompleted
+    )
+  },
+  beforeUnmount() {
+    if (this.unsubscribeUploadCompleted) {
+      this.unsubscribeUploadCompleted()
+      this.unsubscribeUploadCompleted = null
+    }
   },
   methods: {
     /** Valor da OC para exibição; "—" quando vazia/inexistente. */
@@ -531,16 +549,10 @@ export default {
       }
     },
 
-    async close() {
+    close() {
       if (this.busy) return
-      // Avisa se ainda há fotos sendo enviadas em segundo plano.
-      if (this.pendingUploadCount > 0) {
-        const ok = await useSystemDialogStore().showConfirm(
-          `Há ${this.pendingUploadCount} imagem(ns) sendo enviada(s). Se fechar agora, o acompanhamento desses envios será interrompido. Deseja fechar mesmo assim?`,
-          'Envios em andamento'
-        )
-        if (!ok) return
-      }
+      // A fila vive no store app-level: fechar o modal não interrompe os envios
+      // (o indicador global mostra o progresso). Sem aviso de pendências.
       this.$emit('close')
     },
 
@@ -706,8 +718,8 @@ export default {
       this.showImagens = false
       this.existingPhotos = []
       this.viewer = null
-      // Não recarrega a contagem aqui: ela é mantida localmente pelos envios
-      // (onUploadSuccess) e exclusões (deleteViewed), evitando divergir dos
+      // Não recarrega a contagem aqui: ela é mantida pelos envios concluídos
+      // (handleUploadCompleted) e exclusões (deleteViewed), evitando divergir dos
       // uploads ainda em andamento.
     },
 
@@ -739,9 +751,10 @@ export default {
     },
 
     /**
-     * Captura uma foto e a coloca na fila de envio em segundo plano. NÃO bloqueia
-     * a interface: o usuário pode tirar outra foto ou avançar de NF enquanto o
-     * upload acontece. A foto é comprimida no cliente antes de entrar na fila.
+     * Captura uma foto e a entrega à fila app-level (store uploadQueue), que envia
+     * em segundo plano. NÃO bloqueia a UI e os envios sobrevivem a fechar o modal /
+     * avançar de NF. A foto é comprimida no cliente e uma miniatura leve é gerada
+     * para a grade (mantém o estado reativo pequeno mesmo com fila longa).
      */
     async onPhotoCaptured(event) {
       const file = event.target.files && event.target.files[0]
@@ -751,7 +764,7 @@ export default {
       if (!schedule) return
       const scheduleId = schedule.id // fixa a NF da foto (mesmo se o usuário avançar)
 
-      const dataUrl = await this.compressImageToDataUrl(file)
+      const dataUrl = await this.compressImageToDataUrl(file, IMAGE_MAX_WIDTH, IMAGE_QUALITY)
       const base64 = String(dataUrl).split(',')[1] || ''
       if (!base64) {
         useSystemDialogStore().showAlert(
@@ -760,27 +773,27 @@ export default {
         )
         return
       }
+      const thumbUrl =
+        (await this.compressImageToDataUrl(file, THUMB_MAX_WIDTH, THUMB_QUALITY)) ||
+        dataUrl
 
       const safeEmail = String(this.currentUserEmail()).replace(/[^\w.@-]/g, '_')
       const fileName = `${safeEmail}_${this.fileStamp()}.jpg`
-      this.uploadQueue.push({
-        id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      useUploadQueueStore().enqueue({
         scheduleId,
+        loadId: this.loadId,
         fileName,
         base64,
-        dataUrl, // miniatura otimista (já comprimida)
-        status: 'pending',
-        error: null,
+        thumbUrl,
       })
-      this.processUploadQueue() // dispara em background (sem await)
     },
 
     /**
-     * Comprime a imagem via canvas (redimensiona para IMAGE_MAX_WIDTH e
-     * recodifica em JPEG IMAGE_QUALITY) e devolve o data URL resultante.
-     * Em caso de falha (ou arquivo não-imagem), devolve o data URL original.
+     * Comprime a imagem via canvas (redimensiona para maxWidth e recodifica em
+     * JPEG quality) e devolve o data URL. Em falha (ou arquivo não-imagem),
+     * devolve o data URL original.
      */
-    compressImageToDataUrl(file) {
+    compressImageToDataUrl(file, maxWidth = IMAGE_MAX_WIDTH, quality = IMAGE_QUALITY) {
       return new Promise(resolve => {
         const readOriginal = () => {
           const r = new FileReader()
@@ -796,9 +809,9 @@ export default {
         const objectUrl = URL.createObjectURL(file)
         img.onload = () => {
           let { width, height } = img
-          if (width > IMAGE_MAX_WIDTH) {
-            height = Math.round((height * IMAGE_MAX_WIDTH) / width)
-            width = IMAGE_MAX_WIDTH
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width)
+            width = maxWidth
           }
           const canvas = document.createElement('canvas')
           canvas.width = width
@@ -806,7 +819,7 @@ export default {
           canvas.getContext('2d').drawImage(img, 0, 0, width, height)
           URL.revokeObjectURL(objectUrl)
           try {
-            resolve(canvas.toDataURL('image/jpeg', IMAGE_QUALITY))
+            resolve(canvas.toDataURL('image/jpeg', quality))
           } catch (_) {
             readOriginal()
           }
@@ -820,78 +833,35 @@ export default {
     },
 
     /**
-     * Processa a fila de envio sequencialmente em segundo plano. É reentrante:
-     * itens adicionados durante o loop também são enviados. Cada item carrega o
-     * seu próprio scheduleId, então acerta a NF correta mesmo após avançar.
+     * Ouvinte de conclusão da fila app-level: incrementa a contagem da NF e, se o
+     * sub-modal de imagens dessa NF estiver aberto, mostra a miniatura como enviada
+     * (sem rebaixar tudo do Drive). NF fechada é coberta pelo ensureImageCount na
+     * próxima abertura.
      */
-    async processUploadQueue() {
-      if (this.processingQueue) return
-      this.processingQueue = true
-      try {
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const item = this.uploadQueue.find(q => q.status === 'pending')
-          if (!item) break
-          item.status = 'enviando'
-          try {
-            const resp = await apiService.post(
-              `/schedules/${encodeURIComponent(item.scheduleId)}/images`,
-              { fileName: item.fileName, base64: item.base64 }
-            )
-            const data = typeof resp === 'string' ? JSON.parse(resp) : resp
-            this.onUploadSuccess(item, data)
-          } catch (err) {
-            item.status = 'erro'
-            item.error = err?.message || 'Falha no envio'
-          }
-        }
-      } finally {
-        this.processingQueue = false
-      }
-    },
-
-    /** Conclui um item enviado: remove da fila, atualiza contagem e miniatura. */
-    onUploadSuccess(item, data) {
-      const i = this.uploadQueue.findIndex(q => q.id === item.id)
-      if (i !== -1) this.uploadQueue.splice(i, 1)
-
-      const sched = this.schedules.find(
-        s => String(s.id) === String(item.scheduleId)
-      )
+    handleUploadCompleted({ scheduleId, file, thumbUrl, fileName }) {
+      const sched = this.schedules.find(s => String(s.id) === String(scheduleId))
       if (sched) {
         const cur = typeof sched.image_count === 'number' ? sched.image_count : 0
         sched.image_count = cur + 1
       }
-
-      // Se a NF dessa foto está aberta no sub-modal, mostra a miniatura como
-      // "enviada" (nuvem) sem precisar rebaixar tudo do Drive.
-      const f = data && data.file
       if (
         this.showImagens &&
         this.currentSchedule &&
-        String(this.currentSchedule.id) === String(item.scheduleId)
+        String(this.currentSchedule.id) === String(scheduleId)
       ) {
         this.existingPhotos.push({
-          id: (f && f.id) || item.id,
-          name: (f && f.name) || item.fileName,
-          dataUrl: item.dataUrl,
-          uploadedBy: (f && f.uploadedBy) || this.currentUserEmail(),
-          uploadedAt: (f && f.uploadedAt) || new Date().toISOString(),
+          id: (file && file.id) || `done-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: (file && file.name) || fileName,
+          dataUrl: thumbUrl,
+          uploadedBy: (file && file.uploadedBy) || this.currentUserEmail(),
+          uploadedAt: (file && file.uploadedAt) || new Date().toISOString(),
         })
       }
     },
 
     /** Toque numa miniatura da fila: reenvia quando está em erro. */
     onQueueThumbClick(q) {
-      if (q && q.status === 'erro') this.retryQueueItem(q)
-    },
-
-    /** Recoloca um item com erro na fila para nova tentativa. */
-    retryQueueItem(q) {
-      if (!q || q.status !== 'erro') return
-      q.status = 'pending'
-      q.error = null
-      this.processUploadQueue()
+      if (q && q.status === 'erro') useUploadQueueStore().retry(q.id)
     },
 
     openViewer(item) {

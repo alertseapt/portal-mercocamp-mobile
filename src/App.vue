@@ -2019,6 +2019,9 @@
 
     <!-- Diálogos do sistema (confirm/alert) - centralizados no layout -->
     <SystemDialog />
+
+    <!-- Indicador global da fila de envio de imagens (segundo plano) -->
+    <UploadQueueIndicator />
   </div>
 </template>
 
@@ -2110,6 +2113,8 @@ import CargaDescargaInformacoesGeraisPage from './views/CargaDescargaInformacoes
 import FaturasLista from './views/FaturasLista.vue'
 import FinanceiroSolicitacoes from './views/FinanceiroSolicitacoes.vue'
 import SystemDialog from './components/SystemDialog.vue'
+import UploadQueueIndicator from './components/UploadQueueIndicator.vue'
+import { useUploadQueueStore } from './stores/uploadQueue.js'
 import QrScannerButton from './components/QrScannerButton.vue'
 import ConfirmacaoRecebimentoModal from './components/ConfirmacaoRecebimentoModal.vue'
 import { checkPermission, checkUserLevel } from './utils/permissions.js'
@@ -2461,6 +2466,7 @@ export default {
     FaturasLista,
     FinanceiroSolicitacoes,
     SystemDialog,
+    UploadQueueIndicator,
     QrScannerButton,
     ConfirmacaoRecebimentoModal,
   },
@@ -9150,6 +9156,14 @@ export default {
   async mounted() {
     // App.vue inicializado
     console.log('🚀 MOUNTED: Iniciando App.vue...')
+
+    // Fila de envio de imagens em segundo plano (app-level): re-hidrata do
+    // IndexedDB e retoma os envios pendentes assim que o app abre.
+    try {
+      useUploadQueueStore().init()
+    } catch (e) {
+      console.warn('Falha ao iniciar a fila de uploads:', e?.message || e)
+    }
 
     // Expor notificações do sistema globalmente - evita alert() do navegador em qualquer módulo
     window.__showToast = (msg, type) =>
