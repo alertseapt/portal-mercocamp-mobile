@@ -591,8 +591,8 @@ export default {
       try {
         console.log('🔄 [ZPL→PDF] Iniciando conversão:', doc.name)
 
-        // Marcar como convertendo
-        this.$set(doc, 'converting', true)
+        // Marcar como convertendo (Vue 3: atribuição direta já é reativa)
+        doc.converting = true
 
         // Limpar base64
         const cleanedBase64 = this.cleanBase64(doc.data)
@@ -678,8 +678,8 @@ export default {
         console.error('❌ [ZPL→PDF] Erro na conversão:', error)
         alert(`Erro ao converter ZPL para PDF:\n\n${error.message}`)
       } finally {
-        // Desmarcar como convertendo
-        this.$set(doc, 'converting', false)
+        // Desmarcar como convertendo (Vue 3: atribuição direta já é reativa)
+        doc.converting = false
       }
     },
   },

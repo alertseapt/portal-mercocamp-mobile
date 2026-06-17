@@ -2448,8 +2448,9 @@ export default {
       this.showObservationsModal = true
 
       // Inicializar observação se não existir
+      // (Vue 3: atribuição direta em objeto reativo já é reativa; $set foi removido)
       if (!this.fileObservations[file.name]) {
-        this.$set(this.fileObservations, file.name, '')
+        this.fileObservations[file.name] = ''
       }
     },
 

@@ -4924,9 +4924,10 @@ export default {
         return
       }
 
-      // Inicializar array para este load_id se não existir (usando $set para reatividade)
+      // Inicializar array para este load_id se não existir
+      // (Vue 3: atribuição direta em objeto reativo já é reativa; $set foi removido)
       if (!this.selectedLoadSchedules[loadId]) {
-        this.$set(this.selectedLoadSchedules, loadId, [])
+        this.selectedLoadSchedules[loadId] = []
         console.log(`📝 [SELECTION] Inicializado array para loadId: ${loadId}`)
       }
 
@@ -5367,17 +5368,18 @@ export default {
       )
 
       // Garantir que o valor seja numérico e válido
+      // (Vue 3: atribuição direta em objeto reativo já é reativa; $set foi removido)
       if (value === '' || value === null || value === undefined) {
-        this.$set(this.dockInputs, loadId, null)
+        this.dockInputs[loadId] = null
       } else {
         const numValue = Number(value)
         if (!isNaN(numValue) && numValue >= 1) {
-          this.$set(this.dockInputs, loadId, numValue)
+          this.dockInputs[loadId] = numValue
           console.log(
             `✅ [DOCK-INPUT] Valor definido: ${numValue} para loadId: ${loadId}`
           )
         } else {
-          this.$set(this.dockInputs, loadId, null)
+          this.dockInputs[loadId] = null
         }
       }
 
